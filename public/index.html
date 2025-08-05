@@ -1,0 +1,794 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WhatsApp Service Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .status-connected { color: #28a745; }
+        .status-disconnected { color: #dc3545; }
+        .status-waiting { color: #ffc107; }
+        .message-incoming { background-color: #e3f2fd; }
+        .message-outgoing { background-color: #f1f8e9; }
+        .card-header { background: linear-gradient(135deg, #25d366, #128c7e); color: white; }
+        .btn-whatsapp { background-color: #25d366; border-color: #25d366; }
+        .btn-whatsapp:hover { background-color: #128c7e; border-color: #128c7e; }
+        .navbar-brand { font-weight: bold; }
+        .message-row { transition: all 0.3s ease; }
+        .message-row:hover { background-color: #f8f9fa; }
+        .status-badge { font-size: 0.875rem; }
+        .auto-refresh { background-color: #17a2b8; border-color: #17a2b8; }
+        .auto-refresh:hover { background-color: #138496; border-color: #117a8b; }
+        .qr-code-wrapper { 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            padding: 20px; 
+            background: #f8f9fa; 
+            border-radius: 10px; 
+            margin: 20px 0; 
+        }
+        .qr-code-wrapper img { 
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1); 
+        }
+        .btn-group .btn { font-size: 0.75rem; }
+        #qrModal .modal-body { min-height: 200px; }
+        .connection-controls { gap: 5px; }
+    </style>
+</head>
+<body class="bg-light">
+    <!-- Navbar -->
+    <nav class="navbar navbar-expand-lg navbar-dark" style="background-color: #075e54;">
+        <div class="container">
+            <a class="navbar-brand" href="#">
+                <i class="fab fa-whatsapp me-2"></i>WhatsApp Service Dashboard
+            </a>
+            <div class="d-flex align-items-center">
+                <span id="connectionStatus" class="badge status-disconnected me-3">
+                    <i class="fas fa-circle me-1"></i>Disconnected
+                </span>
+                <button id="refreshBtn" class="btn btn-outline-light btn-sm">
+                    <i class="fas fa-sync-alt"></i> Refresh
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <!-- Status Cards -->
+        <div class="row mb-4">
+            <div class="col-md-3">
+                <div class="card">
+                    <div class="card-body text-center">
+                        <h5 class="card-title"><i class="fas fa-plug me-2"></i>Connection Status</h5>
+                        <h3 id="statusText" class="status-disconnected">Disconnected</h3>
+                        <small id="lastUpdate" class="text-muted">Last updated: Never</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card">
+                    <div class="card-body text-center">
+                        <h5 class="card-title"><i class="fas fa-comments me-2"></i>Total Messages</h5>
+                        <h3 id="totalMessages" class="text-primary">0</h3>
+                        <small class="text-muted">Messages in database</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card">
+                    <div class="card-body text-center">
+                        <h5 class="card-title"><i class="fas fa-robot me-2"></i>Auto Reply</h5>
+                        <div class="form-check form-switch d-flex justify-content-center">
+                            <input class="form-check-input" type="checkbox" id="autoReplyToggle" checked>
+                        </div>
+                        <small class="text-muted">Auto response enabled</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card">
+                    <div class="card-body text-center">
+                        <h5 class="card-title"><i class="fas fa-qrcode me-2"></i>Connection</h5>
+                        <div class="d-grid gap-2">
+                            <button id="showQrBtn" class="btn btn-info btn-sm">
+                                <i class="fas fa-qrcode me-1"></i>Show QR
+                            </button>
+                            <div class="btn-group" role="group">
+                                <button id="reconnectBtn" class="btn btn-warning btn-sm">
+                                    <i class="fas fa-sync-alt me-1"></i>Reconnect
+                                </button>
+                                <button id="logoutBtn" class="btn btn-danger btn-sm">
+                                    <i class="fas fa-sign-out-alt me-1"></i>Logout
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- QR Code Modal -->
+        <div class="modal fade" id="qrModal" tabindex="-1" aria-labelledby="qrModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="qrModalLabel">
+                            <i class="fab fa-whatsapp me-2"></i>WhatsApp QR Code
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body text-center">
+                        <div id="qrCodeContainer">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Loading QR Code...</span>
+                            </div>
+                            <p class="mt-2">Loading QR Code...</p>
+                        </div>
+                        <div id="qrInstructions" class="mt-3" style="display: none;">
+                            <div class="alert alert-info">
+                                <h6><i class="fas fa-mobile-alt me-2"></i>How to connect:</h6>
+                                <ol class="text-start">
+                                    <li>Open WhatsApp on your phone</li>
+                                    <li>Go to <strong>Settings</strong> > <strong>Linked Devices</strong></li>
+                                    <li>Tap <strong>Link a Device</strong></li>
+                                    <li>Scan this QR code with your phone</li>
+                                </ol>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                        <button type="button" id="refreshQrBtn" class="btn btn-primary">
+                            <i class="fas fa-sync-alt me-2"></i>Refresh QR Code
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Send Message Card -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="fas fa-paper-plane me-2"></i>Send WhatsApp Message</h5>
+            </div>
+            <div class="card-body">
+                <form id="sendMessageForm">
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="phoneNumber" class="form-label">Phone Number</label>
+                                <input type="text" class="form-control" id="phoneNumber" 
+                                       placeholder="08xxxxxxxxxx or +62xxxxxxxxxx" required>
+                                <div class="form-text">Format: 08xxx, +62xxx, atau 62xxx</div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="messageText" class="form-label">Message</label>
+                                <textarea class="form-control" id="messageText" rows="3" 
+                                          placeholder="Type your message here..." required></textarea>
+                            </div>
+                        </div>
+                        <div class="col-md-2">
+                            <div class="mb-3">
+                                <label class="form-label">&nbsp;</label>
+                                <button type="submit" class="btn btn-whatsapp w-100" id="sendBtn">
+                                    <i class="fas fa-paper-plane me-2"></i>Send
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+                <div id="sendResult" class="mt-3"></div>
+            </div>
+        </div>
+
+        <!-- Auto Reply Settings -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="fas fa-robot me-2"></i>Auto Reply Settings</h5>
+            </div>
+            <div class="card-body">
+                <form id="autoReplyForm">
+                    <div class="row">
+                        <div class="col-md-8">
+                            <div class="mb-3">
+                                <label for="autoReplyMessage" class="form-label">Auto Reply Message</label>
+                                <textarea class="form-control" id="autoReplyMessage" rows="2" 
+                                          placeholder="Enter auto reply message...">Halo! Pesan Anda telah diterima. Terima kasih! 🙏</textarea>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label">&nbsp;</label>
+                                <button type="submit" class="btn btn-secondary w-100">
+                                    <i class="fas fa-save me-2"></i>Update Auto Reply
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Messages History -->
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="fas fa-history me-2"></i>Messages History</h5>
+                <div>
+                    <button id="autoRefreshToggle" class="btn btn-sm auto-refresh me-2">
+                        <i class="fas fa-sync-alt"></i> Auto Refresh: ON
+                    </button>
+                    <button id="refreshMessages" class="btn btn-outline-secondary btn-sm">
+                        <i class="fas fa-sync-alt"></i> Refresh
+                    </button>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Time</th>
+                                <th>Direction</th>
+                                <th>From/To</th>
+                                <th>Message</th>
+                                <th>Type</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="messagesTableBody">
+                            <tr>
+                                <td colspan="6" class="text-center text-muted">
+                                    <i class="fas fa-spinner fa-spin me-2"></i>Loading messages...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div id="messagesCount" class="text-muted small mt-2">
+                    Showing 0 messages
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div class="toast-container position-fixed bottom-0 end-0 p-3">
+        <div id="notificationToast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="toast-header">
+                <i class="fas fa-bell me-2"></i>
+                <strong class="me-auto">Notification</strong>
+                <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+            </div>
+            <div class="toast-body" id="toastMessage">
+                <!-- Message will be inserted here -->
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        class WhatsAppDashboard {
+            constructor() {
+                this.baseURL = '';
+                this.autoRefresh = true;
+                this.refreshInterval = null;
+                this.init();
+            }
+
+            init() {
+                this.setupEventListeners();
+                this.loadInitialData();
+                this.startAutoRefresh();
+            }
+
+            setupEventListeners() {
+                // Send message form
+                document.getElementById('sendMessageForm').addEventListener('submit', (e) => {
+                    e.preventDefault();
+                    this.sendMessage();
+                });
+
+                // Auto reply form
+                document.getElementById('autoReplyForm').addEventListener('submit', (e) => {
+                    e.preventDefault();
+                    this.updateAutoReply();
+                });
+
+                // Auto reply toggle
+                document.getElementById('autoReplyToggle').addEventListener('change', (e) => {
+                    this.toggleAutoReply(e.target.checked);
+                });
+
+                // Refresh buttons
+                document.getElementById('refreshBtn').addEventListener('click', () => {
+                    this.refreshAll();
+                });
+
+                document.getElementById('refreshMessages').addEventListener('click', () => {
+                    this.loadMessages();
+                });
+
+                // Auto refresh toggle
+                document.getElementById('autoRefreshToggle').addEventListener('click', () => {
+                    this.toggleAutoRefresh();
+                });
+
+                // QR Code and connection controls
+                document.getElementById('showQrBtn').addEventListener('click', () => {
+                    this.showQrCode();
+                });
+
+                document.getElementById('refreshQrBtn').addEventListener('click', () => {
+                    this.refreshQrCode();
+                });
+
+                document.getElementById('reconnectBtn').addEventListener('click', () => {
+                    this.reconnectWhatsApp();
+                });
+
+                document.getElementById('logoutBtn').addEventListener('click', () => {
+                    this.logoutWhatsApp();
+                });
+            }
+
+            async loadInitialData() {
+                await Promise.all([
+                    this.loadStatus(),
+                    this.loadMessages()
+                ]);
+            }
+
+            async loadStatus() {
+                try {
+                    const response = await fetch(`${this.baseURL}/status`);
+                    const data = await response.json();
+
+                    if (data.success) {
+                        this.updateStatusDisplay(data.whatsapp);
+                        this.updateLastUpdate();
+                    }
+                } catch (error) {
+                    console.error('Error loading status:', error);
+                    this.showToast('Error loading status', 'error');
+                }
+            }
+
+            async loadMessages() {
+                try {
+                    const response = await fetch(`${this.baseURL}/messages?limit=50`);
+                    const data = await response.json();
+
+                    if (data.success) {
+                        this.updateMessagesTable(data.data);
+                        document.getElementById('totalMessages').textContent = data.count;
+                        document.getElementById('messagesCount').textContent = `Showing ${data.count} messages`;
+                    }
+                } catch (error) {
+                    console.error('Error loading messages:', error);
+                    this.showToast('Error loading messages', 'error');
+                }
+            }
+
+            async sendMessage() {
+                const phoneNumber = document.getElementById('phoneNumber').value;
+                const messageText = document.getElementById('messageText').value;
+                const sendBtn = document.getElementById('sendBtn');
+
+                if (!phoneNumber || !messageText) {
+                    this.showToast('Please fill in all fields', 'error');
+                    return;
+                }
+
+                sendBtn.disabled = true;
+                sendBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Sending...';
+
+                try {
+                    const response = await fetch(`${this.baseURL}/send`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            phoneNumber: phoneNumber,
+                            message: messageText
+                        })
+                    });
+
+                    const data = await response.json();
+
+                    if (data.success) {
+                        this.showResult('sendResult', 'Message sent successfully!', 'success');
+                        document.getElementById('messageText').value = '';
+                        this.loadMessages(); // Refresh messages
+                        this.showToast('Message sent successfully!', 'success');
+                    } else {
+                        this.showResult('sendResult', `Error: ${data.error}`, 'error');
+                        this.showToast(`Error: ${data.error}`, 'error');
+                    }
+                } catch (error) {
+                    console.error('Error sending message:', error);
+                    this.showResult('sendResult', 'Network error occurred', 'error');
+                    this.showToast('Network error occurred', 'error');
+                } finally {
+                    sendBtn.disabled = false;
+                    sendBtn.innerHTML = '<i class="fas fa-paper-plane me-2"></i>Send';
+                }
+            }
+
+            async updateAutoReply() {
+                const enabled = document.getElementById('autoReplyToggle').checked;
+                const message = document.getElementById('autoReplyMessage').value;
+
+                try {
+                    const response = await fetch(`${this.baseURL}/auto-reply`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            enabled: enabled,
+                            message: message
+                        })
+                    });
+
+                    const data = await response.json();
+
+                    if (data.success) {
+                        this.showToast('Auto reply settings updated!', 'success');
+                    } else {
+                        this.showToast(`Error: ${data.error}`, 'error');
+                    }
+                } catch (error) {
+                    console.error('Error updating auto reply:', error);
+                    this.showToast('Network error occurred', 'error');
+                }
+            }
+
+            async toggleAutoReply(enabled) {
+                const message = document.getElementById('autoReplyMessage').value;
+                
+                try {
+                    const response = await fetch(`${this.baseURL}/auto-reply`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            enabled: enabled,
+                            message: message
+                        })
+                    });
+
+                    const data = await response.json();
+
+                    if (data.success) {
+                        this.showToast(`Auto reply ${enabled ? 'enabled' : 'disabled'}`, 'success');
+                    }
+                } catch (error) {
+                    console.error('Error toggling auto reply:', error);
+                }
+            }
+
+            async showQrCode() {
+                const modal = new bootstrap.Modal(document.getElementById('qrModal'));
+                const qrContainer = document.getElementById('qrCodeContainer');
+                const qrInstructions = document.getElementById('qrInstructions');
+                
+                // Show loading
+                qrContainer.innerHTML = `
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading QR Code...</span>
+                    </div>
+                    <p class="mt-2">Loading QR Code...</p>
+                `;
+                qrInstructions.style.display = 'none';
+                
+                modal.show();
+                
+                try {
+                    const response = await fetch(`${this.baseURL}/qr`);
+                    const data = await response.json();
+                    
+                    if (data.success && data.qrCode) {
+                        // Generate QR code image using qrcode library via API
+                        qrContainer.innerHTML = `
+                            <div class="qr-code-wrapper">
+                                <canvas id="qrCanvas" class="border border-2 border-dark"></canvas>
+                            </div>
+                            <p class="mt-2 text-success">
+                                <i class="fas fa-qrcode me-2"></i>QR Code ready for scanning
+                            </p>
+                        `;
+                        
+                        // Generate QR code using a simple text-based approach or external library
+                        this.generateQRCodeCanvas(data.qrCode);
+                        qrInstructions.style.display = 'block';
+                    } else {
+                        qrContainer.innerHTML = `
+                            <div class="alert alert-warning">
+                                <i class="fas fa-exclamation-triangle me-2"></i>
+                                ${data.message || 'No QR Code available. WhatsApp might already be connected.'}
+                            </div>
+                        `;
+                    }
+                } catch (error) {
+                    console.error('Error loading QR code:', error);
+                    qrContainer.innerHTML = `
+                        <div class="alert alert-danger">
+                            <i class="fas fa-exclamation-circle me-2"></i>
+                            Error loading QR Code. Please try again.
+                        </div>
+                    `;
+                }
+            }
+
+            generateQRCodeCanvas(qrData) {
+                // Use our API endpoint to generate QR code image
+                const qrContainer = document.getElementById('qrCodeContainer');
+                const timestamp = new Date().getTime(); // Add timestamp to prevent caching
+                qrContainer.innerHTML = `
+                    <div class="qr-code-wrapper">
+                        <img src="/qr/image?t=${timestamp}" 
+                             alt="WhatsApp QR Code" 
+                             class="img-fluid border border-2 border-dark rounded"
+                             style="max-width: 256px;"
+                             onerror="this.onerror=null; this.src='https://api.qrserver.com/v1/create-qr-code/?size=256x256&data=${encodeURIComponent(qrData)}';">
+                    </div>
+                    <p class="mt-2 text-success">
+                        <i class="fas fa-qrcode me-2"></i>QR Code ready for scanning
+                    </p>
+                `;
+            }
+
+            async refreshQrCode() {
+                const refreshBtn = document.getElementById('refreshQrBtn');
+                const originalText = refreshBtn.innerHTML;
+                
+                refreshBtn.disabled = true;
+                refreshBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Refreshing...';
+                
+                try {
+                    // Reconnect to get new QR code
+                    await this.reconnectWhatsApp(false); // Don't show toast
+                    
+                    // Wait a moment for new QR to be generated
+                    setTimeout(() => {
+                        this.showQrCode();
+                    }, 2000);
+                    
+                } catch (error) {
+                    console.error('Error refreshing QR code:', error);
+                    this.showToast('Error refreshing QR code', 'error');
+                } finally {
+                    refreshBtn.disabled = false;
+                    refreshBtn.innerHTML = originalText;
+                }
+            }
+
+            async reconnectWhatsApp(showToast = true) {
+                const reconnectBtn = document.getElementById('reconnectBtn');
+                const originalText = reconnectBtn.innerHTML;
+                
+                reconnectBtn.disabled = true;
+                reconnectBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Connecting...';
+                
+                try {
+                    const response = await fetch(`${this.baseURL}/reconnect`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        }
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        if (showToast) {
+                            this.showToast('Reconnection initiated successfully!', 'success');
+                        }
+                        // Refresh status after a moment
+                        setTimeout(() => {
+                            this.loadStatus();
+                        }, 2000);
+                    } else {
+                        if (showToast) {
+                            this.showToast(`Error: ${data.error}`, 'error');
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error reconnecting WhatsApp:', error);
+                    if (showToast) {
+                        this.showToast('Network error occurred', 'error');
+                    }
+                } finally {
+                    reconnectBtn.disabled = false;
+                    reconnectBtn.innerHTML = originalText;
+                }
+            }
+
+            async logoutWhatsApp() {
+                if (!confirm('Are you sure you want to logout? This will remove the WhatsApp session and you will need to scan QR code again.')) {
+                    return;
+                }
+                
+                const logoutBtn = document.getElementById('logoutBtn');
+                const originalText = logoutBtn.innerHTML;
+                
+                logoutBtn.disabled = true;
+                logoutBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Logging out...';
+                
+                try {
+                    const response = await fetch(`${this.baseURL}/logout`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        }
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        this.showToast('Logged out successfully!', 'success');
+                        // Refresh status
+                        setTimeout(() => {
+                            this.loadStatus();
+                        }, 1000);
+                    } else {
+                        this.showToast(`Error: ${data.error}`, 'error');
+                    }
+                } catch (error) {
+                    console.error('Error logging out WhatsApp:', error);
+                    this.showToast('Network error occurred', 'error');
+                } finally {
+                    logoutBtn.disabled = false;
+                    logoutBtn.innerHTML = originalText;
+                }
+            }
+
+            updateStatusDisplay(waStatus) {
+                const statusText = document.getElementById('statusText');
+                const connectionStatus = document.getElementById('connectionStatus');
+                const showQrBtn = document.getElementById('showQrBtn');
+                const reconnectBtn = document.getElementById('reconnectBtn');
+
+                let status = 'Disconnected';
+                let className = 'status-disconnected';
+
+                if (waStatus.isConnected) {
+                    status = 'Connected';
+                    className = 'status-connected';
+                    showQrBtn.style.display = 'none';
+                } else if (waStatus.hasQR) {
+                    status = 'Waiting for QR Scan';
+                    className = 'status-waiting';
+                    showQrBtn.style.display = 'block';
+                } else {
+                    showQrBtn.style.display = 'block';
+                }
+
+                statusText.textContent = status;
+                statusText.className = className;
+                connectionStatus.innerHTML = `<i class="fas fa-circle me-1"></i>${status}`;
+                connectionStatus.className = `badge ${className}`;
+
+                // Enable/disable buttons based on status
+                reconnectBtn.disabled = waStatus.isConnected && !waStatus.hasQR;
+            }
+
+            updateMessagesTable(messages) {
+                const tbody = document.getElementById('messagesTableBody');
+                
+                if (messages.length === 0) {
+                    tbody.innerHTML = `
+                        <tr>
+                            <td colspan="6" class="text-center text-muted">No messages found</td>
+                        </tr>
+                    `;
+                    return;
+                }
+
+                tbody.innerHTML = messages.map(msg => {
+                    const time = new Date(msg.timestamp).toLocaleString('id-ID');
+                    const direction = msg.direction;
+                    const rowClass = direction === 'incoming' ? 'message-incoming' : 'message-outgoing';
+                    const directionIcon = direction === 'incoming' ? 'fa-arrow-down text-primary' : 'fa-arrow-up text-success';
+                    const contact = direction === 'incoming' ? msg.from_number : msg.to_number;
+                    
+                    return `
+                        <tr class="message-row ${rowClass}">
+                            <td><small>${time}</small></td>
+                            <td>
+                                <i class="fas ${directionIcon} me-1"></i>
+                                <span class="text-capitalize">${direction}</span>
+                            </td>
+                            <td><strong>${contact}</strong></td>
+                            <td>
+                                <div style="max-width: 300px; word-wrap: break-word;">
+                                    ${this.escapeHtml(msg.message_content)}
+                                </div>
+                            </td>
+                            <td>
+                                <span class="badge bg-secondary">${msg.message_type}</span>
+                            </td>
+                            <td>
+                                <span class="badge bg-success status-badge">${msg.status}</span>
+                            </td>
+                        </tr>
+                    `;
+                }).join('');
+            }
+
+            showResult(elementId, message, type) {
+                const element = document.getElementById(elementId);
+                const alertClass = type === 'success' ? 'alert-success' : 'alert-danger';
+                const icon = type === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle';
+                
+                element.innerHTML = `
+                    <div class="alert ${alertClass} alert-dismissible fade show" role="alert">
+                        <i class="fas ${icon} me-2"></i>${message}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                `;
+            }
+
+            showToast(message, type = 'info') {
+                const toast = document.getElementById('notificationToast');
+                const toastMessage = document.getElementById('toastMessage');
+                
+                toastMessage.textContent = message;
+                
+                const bsToast = new bootstrap.Toast(toast);
+                bsToast.show();
+            }
+
+            updateLastUpdate() {
+                const now = new Date().toLocaleString('id-ID');
+                document.getElementById('lastUpdate').textContent = `Last updated: ${now}`;
+            }
+
+            startAutoRefresh() {
+                this.refreshInterval = setInterval(() => {
+                    if (this.autoRefresh) {
+                        this.loadStatus();
+                        this.loadMessages();
+                    }
+                }, 5000); // Refresh every 5 seconds
+            }
+
+            toggleAutoRefresh() {
+                this.autoRefresh = !this.autoRefresh;
+                const btn = document.getElementById('autoRefreshToggle');
+                
+                if (this.autoRefresh) {
+                    btn.innerHTML = '<i class="fas fa-sync-alt"></i> Auto Refresh: ON';
+                    btn.className = 'btn btn-sm auto-refresh me-2';
+                } else {
+                    btn.innerHTML = '<i class="fas fa-pause"></i> Auto Refresh: OFF';
+                    btn.className = 'btn btn-sm btn-secondary me-2';
+                }
+            }
+
+            async refreshAll() {
+                await this.loadInitialData();
+                this.showToast('Dashboard refreshed', 'success');
+            }
+
+            escapeHtml(text) {
+                const div = document.createElement('div');
+                div.textContent = text;
+                return div.innerHTML;
+            }
+        }
+
+        // Initialize dashboard when page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            new WhatsAppDashboard();
+        });
+    </script>
+</body>
+</html>
