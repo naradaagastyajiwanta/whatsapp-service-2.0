@@ -42,15 +42,21 @@ class APIServer {
             });
         });
 
-        // Get WhatsApp connection status
+        // Get WhatsApp connection status with stability info
         this.app.get('/status', (req, res) => {
             try {
                 const waStatus = this.whatsappManager.getConnectionStatus();
                 const dbStatus = this.dbManager.getConnectionStatus();
                 
+                // Add connection stability information
+                const stabilityInfo = this.whatsappManager.getConnectionStability();
+                
                 res.json({
                     success: true,
-                    whatsapp: waStatus,
+                    whatsapp: {
+                        ...waStatus,
+                        stability: stabilityInfo
+                    },
                     database: dbStatus,
                     timestamp: new Date().toISOString()
                 });
@@ -252,11 +258,12 @@ class APIServer {
         // Reconnect WhatsApp
         this.app.post('/reconnect', async (req, res) => {
             try {
-                await this.whatsappManager.reconnect();
+                // Gunakan reconnectManual untuk reset flag manual disconnect
+                await this.whatsappManager.reconnectManual();
                 
                 res.json({
                     success: true,
-                    message: 'WhatsApp reconnection initiated',
+                    message: 'WhatsApp manual reconnection initiated',
                     timestamp: new Date().toISOString()
                 });
 
@@ -291,6 +298,52 @@ class APIServer {
             }
         });
 
+        // Force stabilize connection (clear auth and restart fresh)
+        this.app.post('/stabilize', async (req, res) => {
+            try {
+                logWithTimestamp('🔧 Force stabilizing WhatsApp connection...');
+                
+                // Clear auth and force fresh start
+                await this.whatsappManager.forceStabilize();
+                
+                res.json({
+                    success: true,
+                    message: 'Connection stabilization initiated. Auth cleared, fresh restart in progress.',
+                    timestamp: new Date().toISOString()
+                });
+
+            } catch (error) {
+                logWithTimestamp(`❌ API Error in /stabilize: ${error.message}`, 'error');
+                res.status(500).json({
+                    success: false,
+                    error: error.message,
+                    timestamp: new Date().toISOString()
+                });
+            }
+        });
+
+        // Get connection diagnostics
+        this.app.get('/diagnostics', (req, res) => {
+            try {
+                const diagnostics = this.whatsappManager.getDiagnostics();
+                
+                res.json({
+                    success: true,
+                    diagnostics: diagnostics,
+                    recommendations: this.generateRecommendations(diagnostics),
+                    timestamp: new Date().toISOString()
+                });
+
+            } catch (error) {
+                logWithTimestamp(`❌ API Error in /diagnostics: ${error.message}`, 'error');
+                res.status(500).json({
+                    success: false,
+                    error: error.message,
+                    timestamp: new Date().toISOString()
+                });
+            }
+        });
+
         // Error handler
         this.app.use((error, req, res, next) => {
             logWithTimestamp(`🔥 Unhandled API error: ${error.message}`, 'error');
@@ -309,6 +362,44 @@ class APIServer {
                 timestamp: new Date().toISOString()
             });
         });
+    }
+
+    generateRecommendations(diagnostics) {
+        const recommendations = [];
+        
+        if (diagnostics.disconnectCount > 5) {
+            recommendations.push({
+                type: 'critical',
+                message: 'High disconnect frequency detected. Consider stabilizing connection.',
+                action: 'POST /stabilize'
+            });
+        }
+        
+        if (diagnostics.lastDisconnectReason === 440) {
+            recommendations.push({
+                type: 'warning',
+                message: 'Session conflict detected (Reason 440). Clear auth session recommended.',
+                action: 'POST /logout'
+            });
+        }
+        
+        if (diagnostics.avgReconnectTime > 10000) {
+            recommendations.push({
+                type: 'info',
+                message: 'Slow reconnect times. Check network stability.',
+                action: 'Check internet connection'
+            });
+        }
+        
+        if (diagnostics.connectionUptime < 300000) { // Less than 5 minutes
+            recommendations.push({
+                type: 'warning',
+                message: 'Short connection uptime. Connection may be unstable.',
+                action: 'Monitor connection or restart service'
+            });
+        }
+        
+        return recommendations;
     }
 
     start() {

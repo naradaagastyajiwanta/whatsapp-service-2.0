@@ -6,50 +6,386 @@
     <title>WhatsApp Service Dashboard</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/animate.css@4.1.1/animate.min.css" rel="stylesheet">
     <style>
-        .status-connected { color: #28a745; }
+        :root {
+            --whatsapp-primary: #25d366;
+            --whatsapp-secondary: #128c7e;
+            --whatsapp-dark: #075e54;
+            --whatsapp-light: #dcf8c6;
+            --shadow-light: 0 2px 15px rgba(0,0,0,0.1);
+            --shadow-medium: 0 4px 25px rgba(0,0,0,0.15);
+            --shadow-heavy: 0 8px 35px rgba(0,0,0,0.2);
+            --border-radius: 12px;
+            --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        body {
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            min-height: 100vh;
+        }
+
+        /* Custom scrollbar */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb { background: var(--whatsapp-primary); border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--whatsapp-secondary); }
+
+        /* Status styles */
+        .status-connected { color: var(--whatsapp-primary); }
         .status-disconnected { color: #dc3545; }
         .status-waiting { color: #ffc107; }
-        .message-incoming { background-color: #e3f2fd; }
-        .message-outgoing { background-color: #f1f8e9; }
-        .card-header { background: linear-gradient(135deg, #25d366, #128c7e); color: white; }
-        .btn-whatsapp { background-color: #25d366; border-color: #25d366; }
-        .btn-whatsapp:hover { background-color: #128c7e; border-color: #128c7e; }
-        .navbar-brand { font-weight: bold; }
-        .message-row { transition: all 0.3s ease; }
-        .message-row:hover { background-color: #f8f9fa; }
-        .status-badge { font-size: 0.875rem; }
-        .auto-refresh { background-color: #17a2b8; border-color: #17a2b8; }
-        .auto-refresh:hover { background-color: #138496; border-color: #117a8b; }
-        .qr-code-wrapper { 
-            display: flex; 
-            justify-content: center; 
-            align-items: center; 
-            padding: 20px; 
-            background: #f8f9fa; 
-            border-radius: 10px; 
-            margin: 20px 0; 
+        .status-connecting { color: #17a2b8; }
+
+        /* Message styles */
+        .message-incoming { 
+            background: linear-gradient(135deg, #e3f2fd, #bbdefb);
+            border-left: 4px solid #2196f3;
         }
-        .qr-code-wrapper img { 
-            box-shadow: 0 4px 8px rgba(0,0,0,0.1); 
+        .message-outgoing { 
+            background: linear-gradient(135deg, var(--whatsapp-light), #c8e6c9);
+            border-left: 4px solid var(--whatsapp-primary);
         }
-        .btn-group .btn { font-size: 0.75rem; }
-        #qrModal .modal-body { min-height: 200px; }
-        .connection-controls { gap: 5px; }
+
+        /* Card improvements */
+        .card {
+            border: none;
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow-light);
+            transition: var(--transition);
+            overflow: hidden;
+        }
+        .card:hover {
+            box-shadow: var(--shadow-medium);
+            transform: translateY(-2px);
+        }
+
+        .card-header {
+            background: linear-gradient(135deg, var(--whatsapp-primary), var(--whatsapp-secondary));
+            color: white;
+            border: none;
+            padding: 1.25rem;
+            font-weight: 600;
+        }
+
+        /* Button improvements */
+        .btn {
+            border-radius: 8px;
+            font-weight: 500;
+            transition: var(--transition);
+            border: none;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            transition: var(--transition);
+        }
+
+        .btn:hover::before { left: 100%; }
+
+        .btn-whatsapp {
+            background: linear-gradient(135deg, var(--whatsapp-primary), var(--whatsapp-secondary));
+            color: white;
+            box-shadow: var(--shadow-light);
+        }
+        .btn-whatsapp:hover {
+            background: linear-gradient(135deg, var(--whatsapp-secondary), var(--whatsapp-dark));
+            box-shadow: var(--shadow-medium);
+            transform: translateY(-1px);
+            color: white;
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #dc3545, #c82333);
+            box-shadow: var(--shadow-light);
+        }
+        .btn-danger:hover {
+            background: linear-gradient(135deg, #c82333, #bd2130);
+            box-shadow: var(--shadow-medium);
+            transform: translateY(-1px);
+        }
+
+        .btn-info {
+            background: linear-gradient(135deg, #17a2b8, #138496);
+            box-shadow: var(--shadow-light);
+        }
+        .btn-info:hover {
+            background: linear-gradient(135deg, #138496, #117a8b);
+            box-shadow: var(--shadow-medium);
+            transform: translateY(-1px);
+        }
+
+        /* Navbar improvements */
+        .navbar {
+            background: linear-gradient(135deg, var(--whatsapp-dark), var(--whatsapp-secondary)) !important;
+            box-shadow: var(--shadow-medium);
+            backdrop-filter: blur(10px);
+        }
+        .navbar-brand {
+            font-weight: 700;
+            font-size: 1.5rem;
+        }
+
+        /* Message row improvements */
+        .message-row {
+            transition: var(--transition);
+            border-radius: 8px;
+            margin-bottom: 8px;
+            padding: 12px;
+        }
+        .message-row:hover {
+            background-color: rgba(37, 211, 102, 0.05);
+            transform: translateX(5px);
+        }
+
+        /* QR Code improvements */
+        .qr-code-wrapper {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 30px;
+            background: linear-gradient(135deg, #ffffff, #f8f9fa);
+            border-radius: var(--border-radius);
+            margin: 20px 0;
+            box-shadow: var(--shadow-light);
+            border: 2px dashed var(--whatsapp-primary);
+        }
+
+        .qr-code-wrapper img {
+            box-shadow: var(--shadow-heavy);
+            border-radius: 8px;
+            border: 3px solid white;
+        }
+
+        .qr-instruction {
+            margin-top: 15px;
+            color: #666;
+            text-align: center;
+            font-style: italic;
+        }
+
+        /* Status badge improvements */
+        .status-badge {
+            font-size: 0.9rem;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            animation: pulse 2s infinite;
+        }
+
+        /* Modal improvements */
+        .modal-content {
+            border: none;
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow-heavy);
+        }
+
+        .modal-header {
+            background: linear-gradient(135deg, var(--whatsapp-primary), var(--whatsapp-secondary));
+            color: white;
+            border: none;
+            border-radius: var(--border-radius) var(--border-radius) 0 0;
+        }
+
+        .modal-body { min-height: 250px; }
+
+        /* Connection controls */
+        .connection-controls {
+            gap: 10px;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            margin: 20px 0;
+        }
+
+        /* Loading animation */
+        .loading-spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid var(--whatsapp-primary);
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(37, 211, 102, 0.7); }
+            70% { box-shadow: 0 0 0 10px rgba(37, 211, 102, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(37, 211, 102, 0); }
+        }
+
+        /* Toast notification styles */
+        .toast {
+            border: none;
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow-medium);
+        }
+
+        .toast-header {
+            background: linear-gradient(135deg, var(--whatsapp-primary), var(--whatsapp-secondary));
+            color: white;
+            border: none;
+        }
+
+        /* Success feedback */
+        .success-feedback {
+            background: linear-gradient(135deg, #28a745, #20c997);
+            color: white;
+            padding: 15px;
+            border-radius: var(--border-radius);
+            margin: 10px 0;
+            box-shadow: var(--shadow-light);
+            animation: slideInDown 0.5s ease-out;
+        }
+
+        .error-feedback {
+            background: linear-gradient(135deg, #dc3545, #e74c3c);
+            color: white;
+            padding: 15px;
+            border-radius: var(--border-radius);
+            margin: 10px 0;
+            box-shadow: var(--shadow-light);
+            animation: slideInDown 0.5s ease-out;
+        }
+
+        /* Responsive improvements */
+        @media (max-width: 768px) {
+            .connection-controls {
+                flex-direction: column;
+                align-items: center;
+            }
+            .btn { margin: 5px 0; }
+            .card { margin-bottom: 20px; }
+        }
+
+        /* Stats cards */
+        .stats-card {
+            background: linear-gradient(135deg, #ffffff, #f8f9fa);
+            border-left: 4px solid var(--whatsapp-primary);
+            transition: var(--transition);
+        }
+
+        .stats-card:hover {
+            background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+            transform: scale(1.02);
+        }
+
+        .stats-number {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--whatsapp-primary);
+        }
+
+        /* Enhanced table */
+        .table {
+            border-radius: var(--border-radius);
+            overflow: hidden;
+            box-shadow: var(--shadow-light);
+        }
+
+        .table thead th {
+            background: linear-gradient(135deg, var(--whatsapp-primary), var(--whatsapp-secondary));
+            color: white;
+            border: none;
+            font-weight: 600;
+        }
+
+        .table tbody tr {
+            transition: var(--transition);
+        }
+
+        .table tbody tr:hover {
+            background-color: rgba(37, 211, 102, 0.1);
+        }
+
+        /* Icon container */
+        .icon-container {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, var(--whatsapp-primary), var(--whatsapp-secondary));
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 1.1rem;
+        }
+
+        /* Metric cards for stability stats */
+        .metric-card {
+            background: rgba(37, 211, 102, 0.05);
+            border-radius: var(--border-radius);
+            padding: 15px;
+            text-align: center;
+            border: 1px solid rgba(37, 211, 102, 0.1);
+            transition: var(--transition);
+        }
+
+        .metric-card:hover {
+            background: rgba(37, 211, 102, 0.1);
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-light);
+        }
+
+        .metric-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--whatsapp-primary);
+            line-height: 1.2;
+        }
+
+        .metric-label {
+            font-size: 0.85rem;
+            color: #666;
+            margin-top: 5px;
+            font-weight: 500;
+        }
     </style>
 </head>
-<body class="bg-light">
+<body>
+    <!-- Toast Container for Notifications -->
+    <div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 9999;">
+        <div id="notificationToast" class="toast" role="alert">
+            <div class="toast-header">
+                <i id="toastIcon" class="fas fa-info-circle me-2"></i>
+                <strong id="toastTitle" class="me-auto">Notification</strong>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast"></button>
+            </div>
+            <div id="toastBody" class="toast-body">
+                Notification message
+            </div>
+        </div>
+    </div>
+
     <!-- Navbar -->
-    <nav class="navbar navbar-expand-lg navbar-dark" style="background-color: #075e54;">
+    <nav class="navbar navbar-expand-lg navbar-dark">
         <div class="container">
-            <a class="navbar-brand" href="#">
+            <a class="navbar-brand animate__animated animate__fadeInLeft" href="#">
                 <i class="fab fa-whatsapp me-2"></i>WhatsApp Service Dashboard
             </a>
             <div class="d-flex align-items-center">
-                <span id="connectionStatus" class="badge status-disconnected me-3">
+                <span id="connectionStatus" class="badge status-disconnected me-3 status-badge">
                     <i class="fas fa-circle me-1"></i>Disconnected
                 </span>
-                <button id="refreshBtn" class="btn btn-outline-light btn-sm">
+                <button id="refreshBtn" class="btn btn-outline-light btn-sm animate__animated animate__fadeInRight">
                     <i class="fas fa-sync-alt"></i> Refresh
                 </button>
             </div>
@@ -57,19 +393,183 @@
     </nav>
 
     <div class="container mt-4">
-        <!-- Status Cards -->
-        <div class="row mb-4">
-            <div class="col-md-3">
-                <div class="card">
+        <!-- Stats Cards -->
+        <div class="row mb-4 animate__animated animate__fadeInUp">
+            <div class="col-lg-3 col-md-6 mb-3">
+                <div class="card stats-card">
                     <div class="card-body text-center">
-                        <h5 class="card-title"><i class="fas fa-plug me-2"></i>Connection Status</h5>
-                        <h3 id="statusText" class="status-disconnected">Disconnected</h3>
+                        <div class="d-flex align-items-center justify-content-between">
+                            <div>
+                                <h6 class="card-title text-muted mb-1"><i class="fas fa-plug me-2"></i>Status</h6>
+                                <h4 id="statusText" class="status-disconnected mb-0">Disconnected</h4>
+                            </div>
+                            <div class="text-primary">
+                                <i class="fas fa-wifi fa-2x opacity-75"></i>
+                            </div>
+                        </div>
                         <small id="lastUpdate" class="text-muted">Last updated: Never</small>
                     </div>
                 </div>
             </div>
-            <div class="col-md-3">
+            <div class="col-lg-3 col-md-6 mb-3">
+                <div class="card stats-card">
+                    <div class="card-body text-center">
+                        <div class="d-flex align-items-center justify-content-between">
+                            <div>
+                                <h6 class="card-title text-muted mb-1"><i class="fas fa-comments me-2"></i>Messages</h6>
+                                <h4 id="totalMessages" class="stats-number mb-0">0</h4>
+                            </div>
+                            <div class="text-success">
+                                <i class="fas fa-envelope fa-2x opacity-75"></i>
+                            </div>
+                        </div>
+                        <small class="text-muted">Total messages</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-3 col-md-6 mb-3">
+                <div class="card stats-card">
+                    <div class="card-body text-center">
+                        <div class="d-flex align-items-center justify-content-between">
+                            <div>
+                                <h6 class="card-title text-muted mb-1"><i class="fas fa-robot me-2"></i>Auto Reply</h6>
+                                <h4 id="autoReplyStatus" class="text-success mb-0">ON</h4>
+                            </div>
+                            <div class="text-info">
+                                <i class="fas fa-magic fa-2x opacity-75"></i>
+                            </div>
+                        </div>
+                        <small class="text-muted">Automatic responses</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-3 col-md-6 mb-3">
+                <div class="card stats-card">
+                    <div class="card-body text-center">
+                        <div class="d-flex align-items-center justify-content-between">
+                            <div>
+                                <h6 class="card-title text-muted mb-1"><i class="fas fa-clock me-2"></i>Uptime</h6>
+                                <h4 id="uptime" class="text-warning mb-0">00:00:00</h4>
+                            </div>
+                            <div class="text-warning">
+                                <i class="fas fa-hourglass-half fa-2x opacity-75"></i>
+                            </div>
+                        </div>
+                        <small class="text-muted">Service uptime</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Feedback Area -->
+        <div id="feedbackArea" class="animate__animated animate__fadeIn"></div>
+
+        <!-- Connection Controls -->
+        <div class="row mb-4 animate__animated animate__fadeInUp" style="animation-delay: 0.2s;">
+            <div class="col-12">
                 <div class="card">
+                    <div class="card-header d-flex align-items-center">
+                        <i class="fas fa-cogs me-2"></i>
+                        <span>Connection Controls</span>
+                        <div class="ms-auto">
+                            <div id="connectionIndicator" class="spinner-border spinner-border-sm text-light d-none" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-body text-center">
+                        <div class="connection-controls">
+                            <button id="showQrBtn" class="btn btn-whatsapp">
+                                <i class="fas fa-qrcode me-2"></i>Show QR Code
+                            </button>
+                            <button id="reconnectBtn" class="btn btn-info">
+                                <i class="fas fa-sync me-2"></i>Reconnect
+                            </button>
+                            <button id="logoutBtn" class="btn btn-danger">
+                                <i class="fas fa-sign-out-alt me-2"></i>Logout
+                            </button>
+                            <button id="disconnectBtn" class="btn btn-secondary">
+                                <i class="fas fa-times me-2"></i>Disconnect
+                            </button>
+                        </div>
+                        <div class="mt-3">
+                            <small class="text-muted">
+                                <i class="fas fa-info-circle me-1"></i>
+                                Use these controls to manage your WhatsApp connection
+                            </small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Connection Stability -->
+        <div class="row mb-4 animate__animated animate__fadeInUp" style="animation-delay: 0.3s;">
+            <div class="col-lg-8">
+                <div class="card border-0 shadow-sm h-100">
+                    <div class="card-body">
+                        <div class="d-flex align-items-center mb-3">
+                            <div class="icon-container">
+                                <i class="fas fa-chart-line text-primary"></i>
+                            </div>
+                            <h5 class="card-title ms-3 mb-0">Connection Stability</h5>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="metric-card">
+                                    <div class="metric-value" id="disconnectCount">-</div>
+                                    <div class="metric-label">Total Disconnects</div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="metric-card">
+                                    <div class="metric-value" id="avgReconnectTime">-</div>
+                                    <div class="metric-label">Avg Reconnect Time</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row mt-3">
+                            <div class="col-md-6">
+                                <div class="metric-card">
+                                    <div class="metric-value" id="connectionUptime">-</div>
+                                    <div class="metric-label">Current Uptime</div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="metric-card">
+                                    <div class="metric-value" id="lastDisconnectReason">-</div>
+                                    <div class="metric-label">Last Disconnect</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-4">
+                <div class="card border-0 shadow-sm h-100">
+                    <div class="card-body">
+                        <div class="d-flex align-items-center mb-3">
+                            <div class="icon-container">
+                                <i class="fas fa-tools text-warning"></i>
+                            </div>
+                            <h5 class="card-title ms-3 mb-0">Stability Tools</h5>
+                        </div>
+                        <button class="btn btn-warning w-100 mb-2" onclick="stabilizeConnection()">
+                            <i class="fas fa-wrench me-2"></i>Auto Stabilize
+                        </button>
+                        <button class="btn btn-info w-100 mb-2" onclick="viewDiagnostics()">
+                            <i class="fas fa-stethoscope me-2"></i>View Diagnostics
+                        </button>
+                        <button class="btn btn-outline-secondary w-100" onclick="downloadLogs()">
+                            <i class="fas fa-download me-2"></i>Download Logs
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Additional Stats -->
+        <div class="row mb-4">
                     <div class="card-body text-center">
                         <h5 class="card-title"><i class="fas fa-comments me-2"></i>Total Messages</h5>
                         <h3 id="totalMessages" class="text-primary">0</h3>
@@ -277,6 +777,7 @@
                 this.baseURL = '';
                 this.autoRefresh = true;
                 this.refreshInterval = null;
+                this.startTime = new Date();
                 this.init();
             }
 
@@ -284,6 +785,122 @@
                 this.setupEventListeners();
                 this.loadInitialData();
                 this.startAutoRefresh();
+                this.startUptimeCounter();
+            }
+
+            // Enhanced notification system
+            showNotification(message, type = 'info', duration = 5000) {
+                const toastEl = document.getElementById('notificationToast');
+                const toastTitle = document.getElementById('toastTitle');
+                const toastBody = document.getElementById('toastBody');
+                const toastIcon = document.getElementById('toastIcon');
+                
+                // Set icon and title based on type
+                let iconClass, title, bgClass;
+                switch(type) {
+                    case 'success':
+                        iconClass = 'fas fa-check-circle text-success';
+                        title = '✅ Success';
+                        bgClass = 'bg-success';
+                        break;
+                    case 'error':
+                        iconClass = 'fas fa-exclamation-circle text-danger';
+                        title = '❌ Error';
+                        bgClass = 'bg-danger';
+                        break;
+                    case 'warning':
+                        iconClass = 'fas fa-exclamation-triangle text-warning';
+                        title = '⚠️ Warning';
+                        bgClass = 'bg-warning text-dark';
+                        break;
+                    case 'info':
+                    default:
+                        iconClass = 'fas fa-info-circle text-info';
+                        title = '💡 Information';
+                        bgClass = 'bg-info';
+                }
+                
+                toastIcon.className = iconClass;
+                toastTitle.textContent = title;
+                toastBody.textContent = message;
+                toastEl.querySelector('.toast-header').className = `toast-header ${bgClass} text-white`;
+                
+                const toast = new bootstrap.Toast(toastEl, { delay: duration });
+                toast.show();
+                
+                // Add to feedback area as well
+                this.addFeedback(message, type);
+            }
+
+            addFeedback(message, type) {
+                const feedbackArea = document.getElementById('feedbackArea');
+                const feedbackClass = type === 'success' ? 'success-feedback' : 
+                                    type === 'error' ? 'error-feedback' : 
+                                    'info-feedback';
+                
+                const feedbackElement = document.createElement('div');
+                feedbackElement.className = `${feedbackClass} animate__animated animate__slideInDown`;
+                feedbackElement.innerHTML = `
+                    <div class="d-flex align-items-center">
+                        <i class="fas fa-${type === 'success' ? 'check' : type === 'error' ? 'times' : 'info'}-circle me-2"></i>
+                        <span>${message}</span>
+                        <button type="button" class="btn-close btn-close-white ms-auto" onclick="this.parentElement.parentElement.remove()"></button>
+                    </div>
+                `;
+                
+                feedbackArea.appendChild(feedbackElement);
+                
+                // Auto remove after 8 seconds
+                setTimeout(() => {
+                    if (feedbackElement.parentElement) {
+                        feedbackElement.classList.add('animate__fadeOutUp');
+                        setTimeout(() => feedbackElement.remove(), 500);
+                    }
+                }, 8000);
+            }
+
+            showButtonLoading(buttonId, loadingText = 'Loading...') {
+                const button = document.getElementById(buttonId);
+                if (button) {
+                    const originalText = button.innerHTML;
+                    button.disabled = true;
+                    button.innerHTML = `<i class="fas fa-spinner fa-spin me-1"></i>${loadingText}`;
+                    
+                    setTimeout(() => {
+                        button.disabled = false;
+                        button.innerHTML = originalText;
+                    }, 2000);
+                }
+            }
+
+            showConnectionIndicator(show = true) {
+                const indicator = document.getElementById('connectionIndicator');
+                if (indicator) {
+                    if (show) {
+                        indicator.classList.remove('d-none');
+                    } else {
+                        indicator.classList.add('d-none');
+                    }
+                }
+            }
+
+            startUptimeCounter() {
+                const updateUptime = () => {
+                    const now = new Date();
+                    const diff = now - this.startTime;
+                    const hours = Math.floor(diff / (1000 * 60 * 60));
+                    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+                    const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+                    
+                    const uptimeEl = document.getElementById('uptime');
+                    if (uptimeEl) {
+                        uptimeEl.textContent = 
+                            `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+                    }
+                };
+                
+                updateUptime();
+                setInterval(updateUptime, 1000);
             }
 
             setupEventListeners() {
@@ -354,7 +971,7 @@
                     }
                 } catch (error) {
                     console.error('Error loading status:', error);
-                    this.showToast('Error loading status', 'error');
+                    this.showNotification('⚠️ Error loading WhatsApp status', 'error');
                 }
             }
 
@@ -370,7 +987,7 @@
                     }
                 } catch (error) {
                     console.error('Error loading messages:', error);
-                    this.showToast('Error loading messages', 'error');
+                    this.showNotification('⚠️ Error loading message history', 'error');
                 }
             }
 
@@ -380,7 +997,7 @@
                 const sendBtn = document.getElementById('sendBtn');
 
                 if (!phoneNumber || !messageText) {
-                    this.showToast('Please fill in all fields', 'error');
+                    this.showNotification('📝 Please fill in all fields before sending', 'warning');
                     return;
                 }
 
@@ -405,15 +1022,15 @@
                         this.showResult('sendResult', 'Message sent successfully!', 'success');
                         document.getElementById('messageText').value = '';
                         this.loadMessages(); // Refresh messages
-                        this.showToast('Message sent successfully!', 'success');
+                        this.showNotification('🎉 Message sent successfully!', 'success');
                     } else {
                         this.showResult('sendResult', `Error: ${data.error}`, 'error');
-                        this.showToast(`Error: ${data.error}`, 'error');
+                        this.showNotification(`❌ Error sending message: ${data.error}`, 'error');
                     }
                 } catch (error) {
                     console.error('Error sending message:', error);
                     this.showResult('sendResult', 'Network error occurred', 'error');
-                    this.showToast('Network error occurred', 'error');
+                    this.showNotification('🔌 Network error occurred while sending message', 'error');
                 } finally {
                     sendBtn.disabled = false;
                     sendBtn.innerHTML = '<i class="fas fa-paper-plane me-2"></i>Send';
@@ -439,13 +1056,15 @@
                     const data = await response.json();
 
                     if (data.success) {
-                        this.showToast('Auto reply settings updated!', 'success');
+                        this.showNotification('🤖 Auto reply settings updated successfully!', 'success');
+                        document.getElementById('autoReplyStatus').textContent = enabled ? 'ON' : 'OFF';
+                        document.getElementById('autoReplyStatus').className = enabled ? 'text-success' : 'text-muted';
                     } else {
-                        this.showToast(`Error: ${data.error}`, 'error');
+                        this.showNotification(`⚠️ Error updating auto reply: ${data.error}`, 'error');
                     }
                 } catch (error) {
                     console.error('Error updating auto reply:', error);
-                    this.showToast('Network error occurred', 'error');
+                    this.showNotification('🔌 Network error while updating auto reply', 'error');
                 }
             }
 
@@ -467,7 +1086,7 @@
                     const data = await response.json();
 
                     if (data.success) {
-                        this.showToast(`Auto reply ${enabled ? 'enabled' : 'disabled'}`, 'success');
+                        this.showNotification(`🔄 Auto reply ${enabled ? 'enabled' : 'disabled'} successfully`, 'success');
                     }
                 } catch (error) {
                     console.error('Error toggling auto reply:', error);
@@ -563,19 +1182,20 @@
                     
                 } catch (error) {
                     console.error('Error refreshing QR code:', error);
-                    this.showToast('Error refreshing QR code', 'error');
+                    this.showNotification('❌ Error refreshing QR code', 'error');
                 } finally {
                     refreshBtn.disabled = false;
                     refreshBtn.innerHTML = originalText;
                 }
             }
 
-            async reconnectWhatsApp(showToast = true) {
+            async reconnectWhatsApp(showNotification = true) {
                 const reconnectBtn = document.getElementById('reconnectBtn');
                 const originalText = reconnectBtn.innerHTML;
                 
                 reconnectBtn.disabled = true;
                 reconnectBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Connecting...';
+                this.showConnectionIndicator(true);
                 
                 try {
                     const response = await fetch(`${this.baseURL}/reconnect`, {
@@ -588,31 +1208,32 @@
                     const data = await response.json();
                     
                     if (data.success) {
-                        if (showToast) {
-                            this.showToast('Reconnection initiated successfully!', 'success');
+                        if (showNotification) {
+                            this.showNotification('🔄 Reconnection initiated successfully! Please wait...', 'success');
                         }
                         // Refresh status after a moment
                         setTimeout(() => {
                             this.loadStatus();
-                        }, 2000);
+                        }, 3000);
                     } else {
-                        if (showToast) {
-                            this.showToast(`Error: ${data.error}`, 'error');
+                        if (showNotification) {
+                            this.showNotification(`❌ Reconnection failed: ${data.error}`, 'error');
                         }
                     }
                 } catch (error) {
                     console.error('Error reconnecting WhatsApp:', error);
-                    if (showToast) {
-                        this.showToast('Network error occurred', 'error');
+                    if (showNotification) {
+                        this.showNotification('🔌 Network error occurred during reconnection', 'error');
                     }
                 } finally {
                     reconnectBtn.disabled = false;
                     reconnectBtn.innerHTML = originalText;
+                    this.showConnectionIndicator(false);
                 }
             }
 
             async logoutWhatsApp() {
-                if (!confirm('Are you sure you want to logout? This will remove the WhatsApp session and you will need to scan QR code again.')) {
+                if (!confirm('🚪 Are you sure you want to logout? This will remove the WhatsApp session and you will need to scan QR code again.')) {
                     return;
                 }
                 
@@ -621,6 +1242,7 @@
                 
                 logoutBtn.disabled = true;
                 logoutBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Logging out...';
+                this.showConnectionIndicator(true);
                 
                 try {
                     const response = await fetch(`${this.baseURL}/logout`, {
@@ -633,20 +1255,63 @@
                     const data = await response.json();
                     
                     if (data.success) {
-                        this.showToast('Logged out successfully!', 'success');
+                        this.showNotification('🚪 Logged out successfully! New QR code will be generated automatically.', 'success');
                         // Refresh status
                         setTimeout(() => {
                             this.loadStatus();
-                        }, 1000);
+                        }, 3000);
                     } else {
-                        this.showToast(`Error: ${data.error}`, 'error');
+                        this.showNotification(`❌ Logout failed: ${data.error}`, 'error');
                     }
                 } catch (error) {
                     console.error('Error logging out WhatsApp:', error);
-                    this.showToast('Network error occurred', 'error');
+                    this.showNotification('🔌 Network error occurred during logout', 'error');
                 } finally {
                     logoutBtn.disabled = false;
                     logoutBtn.innerHTML = originalText;
+                    this.showConnectionIndicator(false);
+                }
+            }
+
+            // Alias methods for event listeners
+            async showQR() { return this.showQrCode(); }
+            async reconnect() { return this.reconnectWhatsApp(); }
+            async logout() { return this.logoutWhatsApp(); }
+            
+            async disconnect() {
+                const disconnectBtn = document.getElementById('disconnectBtn');
+                const originalText = disconnectBtn.innerHTML;
+                
+                disconnectBtn.disabled = true;
+                disconnectBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Disconnecting...';
+                this.showConnectionIndicator(true);
+                
+                try {
+                    const response = await fetch(`${this.baseURL}/disconnect`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        }
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        this.showNotification('🔌 Disconnected successfully!', 'success');
+                        // Refresh status
+                        setTimeout(() => {
+                            this.loadStatus();
+                        }, 2000);
+                    } else {
+                        this.showNotification(`❌ Disconnect failed: ${data.error}`, 'error');
+                    }
+                } catch (error) {
+                    console.error('Error disconnecting WhatsApp:', error);
+                    this.showNotification('🔌 Network error occurred during disconnect', 'error');
+                } finally {
+                    disconnectBtn.disabled = false;
+                    disconnectBtn.innerHTML = originalText;
+                    this.showConnectionIndicator(false);
                 }
             }
 
@@ -656,6 +1321,9 @@
                 const showQrBtn = document.getElementById('showQrBtn');
                 const reconnectBtn = document.getElementById('reconnectBtn');
 
+                // Store previous status for comparison
+                const prevStatus = statusText.textContent;
+                
                 let status = 'Disconnected';
                 let className = 'status-disconnected';
 
@@ -663,18 +1331,37 @@
                     status = 'Connected';
                     className = 'status-connected';
                     showQrBtn.style.display = 'none';
+                    
+                    // Show success notification when just connected
+                    if (prevStatus !== 'Connected') {
+                        this.showNotification('🎉 WhatsApp connected successfully!', 'success');
+                    }
                 } else if (waStatus.hasQR) {
                     status = 'Waiting for QR Scan';
                     className = 'status-waiting';
                     showQrBtn.style.display = 'block';
+                    
+                    // Show info notification when QR is ready
+                    if (prevStatus !== 'Waiting for QR Scan') {
+                        this.showNotification('📱 QR Code ready! Please scan with your WhatsApp mobile app', 'info');
+                    }
                 } else {
                     showQrBtn.style.display = 'block';
+                    
+                    // Show warning when disconnected
+                    if (prevStatus === 'Connected') {
+                        this.showNotification('⚠️ WhatsApp connection lost. Please reconnect.', 'warning');
+                    }
                 }
 
                 statusText.textContent = status;
                 statusText.className = className;
                 connectionStatus.innerHTML = `<i class="fas fa-circle me-1"></i>${status}`;
-                connectionStatus.className = `badge ${className}`;
+                connectionStatus.className = `badge ${className} status-badge`;
+
+                // Update stats
+                document.getElementById('autoReplyStatus').textContent = waStatus.autoReplyEnabled ? 'ON' : 'OFF';
+                document.getElementById('autoReplyStatus').className = waStatus.autoReplyEnabled ? 'text-success' : 'text-muted';
 
                 // Enable/disable buttons based on status
                 reconnectBtn.disabled = waStatus.isConnected && !waStatus.hasQR;
@@ -736,16 +1423,6 @@
                 `;
             }
 
-            showToast(message, type = 'info') {
-                const toast = document.getElementById('notificationToast');
-                const toastMessage = document.getElementById('toastMessage');
-                
-                toastMessage.textContent = message;
-                
-                const bsToast = new bootstrap.Toast(toast);
-                bsToast.show();
-            }
-
             updateLastUpdate() {
                 const now = new Date().toLocaleString('id-ID');
                 document.getElementById('lastUpdate').textContent = `Last updated: ${now}`;
@@ -775,7 +1452,7 @@
 
             async refreshAll() {
                 await this.loadInitialData();
-                this.showToast('Dashboard refreshed', 'success');
+                this.showNotification('🔄 Dashboard refreshed successfully', 'success');
             }
 
             escapeHtml(text) {
@@ -783,12 +1460,308 @@
                 div.textContent = text;
                 return div.innerHTML;
             }
+
+            // Load connection stability information
+            async loadStabilityInfo() {
+                try {
+                    const response = await fetch('/api/status');
+                    const data = await response.json();
+                    
+                    if (data.stability) {
+                        const stability = data.stability;
+                        
+                        document.getElementById('disconnectCount').textContent = stability.disconnectCount || 0;
+                        document.getElementById('avgReconnectTime').textContent = stability.avgReconnectTime 
+                            ? `${stability.avgReconnectTime}ms` : '-';
+                        document.getElementById('connectionUptime').textContent = stability.connectionUptime 
+                            ? this.formatUptime(stability.connectionUptime) : '-';
+                        document.getElementById('lastDisconnectReason').textContent = 
+                            stability.lastDisconnectReason || 'None';
+                    }
+                } catch (error) {
+                    console.error('Error loading stability info:', error);
+                }
+            }
+
+            formatUptime(ms) {
+                const seconds = Math.floor(ms / 1000);
+                const minutes = Math.floor(seconds / 60);
+                const hours = Math.floor(minutes / 60);
+                
+                if (hours > 0) {
+                    return `${hours}h ${minutes % 60}m`;
+                } else if (minutes > 0) {
+                    return `${minutes}m ${seconds % 60}s`;
+                } else {
+                    return `${seconds}s`;
+                }
+            }
         }
 
+        // Global functions for button events
+        async function stabilizeConnection() {
+            try {
+                const response = await fetch('/api/stabilize', { method: 'POST' });
+                const data = await response.json();
+                
+                if (data.success) {
+                    showNotification('🔧 Connection stabilization initiated', 'info');
+                } else {
+                    showNotification('❌ Failed to stabilize connection', 'error');
+                }
+            } catch (error) {
+                console.error('Error stabilizing connection:', error);
+                showNotification('❌ Error stabilizing connection', 'error');
+            }
+        }
+
+        async function viewDiagnostics() {
+            try {
+                const response = await fetch('/api/diagnostics');
+                const data = await response.json();
+                
+                // Create modal for diagnostics
+                const modalHtml = `
+                    <div class="modal fade" id="diagnosticsModal" tabindex="-1">
+                        <div class="modal-dialog modal-lg">
+                            <div class="modal-content">
+                                <div class="modal-header">
+                                    <h5 class="modal-title">
+                                        <i class="fas fa-stethoscope me-2"></i>Connection Diagnostics
+                                    </h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                </div>
+                                <div class="modal-body">
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <h6>Connection Stats</h6>
+                                            <ul class="list-unstyled">
+                                                <li><strong>Status:</strong> ${data.currentStatus?.status || 'Unknown'}</li>
+                                                <li><strong>Disconnects:</strong> ${data.disconnectCount || 0}</li>
+                                                <li><strong>Reconnect Attempts:</strong> ${data.reconnectAttempts || 0}</li>
+                                                <li><strong>Avg Reconnect Time:</strong> ${data.avgReconnectTime || 0}ms</li>
+                                                <li><strong>Last Disconnect:</strong> ${data.lastDisconnectReason || 'None'}</li>
+                                            </ul>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <h6>System Info</h6>
+                                            <ul class="list-unstyled">
+                                                <li><strong>Uptime:</strong> ${Math.floor(data.uptime || 0)}s</li>
+                                                <li><strong>Auth Files:</strong> ${data.authFilesExist ? 'Yes' : 'No'}</li>
+                                                <li><strong>Memory Usage:</strong> ${Math.round((data.memoryUsage?.rss || 0) / 1024 / 1024)}MB</li>
+                                                <li><strong>Timestamp:</strong> ${new Date(data.timestamp).toLocaleString()}</li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                // Remove existing modal if any
+                const existingModal = document.getElementById('diagnosticsModal');
+                if (existingModal) {
+                    existingModal.remove();
+                }
+                
+                // Add modal to body
+                document.body.insertAdjacentHTML('beforeend', modalHtml);
+                
+                // Show modal
+                const modal = new bootstrap.Modal(document.getElementById('diagnosticsModal'));
+                modal.show();
+                
+            } catch (error) {
+                console.error('Error viewing diagnostics:', error);
+                showNotification('❌ Error loading diagnostics', 'error');
+            }
+        }
+
+        function downloadLogs() {
+            showNotification('📥 Log download feature coming soon', 'info');
+        }
+
+        // Global notification function
+        function showNotification(message, type = 'info') {
+            const toastHtml = `
+                <div class="toast align-items-center text-white bg-${type === 'success' ? 'success' : type === 'error' ? 'danger' : 'info'} border-0" role="alert">
+                    <div class="d-flex">
+                        <div class="toast-body">
+                            ${message}
+                        </div>
+                        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+                    </div>
+                </div>
+            `;
+            
+            let toastContainer = document.getElementById('toastContainer');
+            if (!toastContainer) {
+                toastContainer = document.createElement('div');
+                toastContainer.id = 'toastContainer';
+                toastContainer.className = 'toast-container position-fixed top-0 end-0 p-3';
+                toastContainer.style.zIndex = '9999';
+                document.body.appendChild(toastContainer);
+            }
+            
+            toastContainer.insertAdjacentHTML('beforeend', toastHtml);
+            const toastElement = toastContainer.lastElementChild;
+            const toast = new bootstrap.Toast(toastElement);
+            toast.show();
+            
+            // Remove toast after it's hidden
+            toastElement.addEventListener('hidden.bs.toast', () => {
+                toastElement.remove();
+            });
+        }
+
+        // Global functions for button events
+        async function stabilizeConnection() {
+            try {
+                const response = await fetch('/api/stabilize', { method: 'POST' });
+                const data = await response.json();
+                
+                if (data.success) {
+                    showNotification('🔧 Connection stabilization initiated', 'warning');
+                } else {
+                    showNotification(`❌ Stabilization failed: ${data.error}`, 'error');
+                }
+            } catch (error) {
+                showNotification('❌ Error during stabilization', 'error');
+            }
+        }
+
+        async function viewDiagnostics() {
+            try {
+                const response = await fetch('/api/diagnostics');
+                const data = await response.json();
+                
+                if (data.success) {
+                    const diagnostics = data.data;
+                    let diagnosticsHTML = `
+                        <div class="modal fade" id="diagnosticsModal" tabindex="-1">
+                            <div class="modal-dialog modal-lg">
+                                <div class="modal-content">
+                                    <div class="modal-header">
+                                        <h5 class="modal-title">Connection Diagnostics</h5>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                    </div>
+                                    <div class="modal-body">
+                                        <div class="row">
+                                            <div class="col-md-6">
+                                                <h6>Connection Stats</h6>
+                                                <ul class="list-unstyled">
+                                                    <li><strong>Disconnects:</strong> ${diagnostics.disconnectCount}</li>
+                                                    <li><strong>Reconnect Attempts:</strong> ${diagnostics.reconnectAttempts}</li>
+                                                    <li><strong>Avg Reconnect Time:</strong> ${diagnostics.avgReconnectTime}ms</li>
+                                                    <li><strong>Current Status:</strong> ${diagnostics.currentStatus.status}</li>
+                                                </ul>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <h6>System Info</h6>
+                                                <ul class="list-unstyled">
+                                                    <li><strong>Auth Files:</strong> ${diagnostics.authFilesExist ? 'Yes' : 'No'}</li>
+                                                    <li><strong>Memory Usage:</strong> ${Math.round(diagnostics.memoryUsage.heapUsed / 1024 / 1024)}MB</li>
+                                                    <li><strong>Process Uptime:</strong> ${Math.round(diagnostics.uptime / 3600)}h</li>
+                                                    <li><strong>Is Stabilizing:</strong> ${diagnostics.isStabilizing ? 'Yes' : 'No'}</li>
+                                                </ul>
+                                            </div>
+                                        </div>
+                                        <div class="mt-3">
+                                            <h6>Last Disconnect</h6>
+                                            <p><strong>Reason:</strong> ${diagnostics.lastDisconnectReason || 'None'}</p>
+                                            <p><strong>Time:</strong> ${diagnostics.lastDisconnectTime ? new Date(diagnostics.lastDisconnectTime).toLocaleString() : 'None'}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    
+                    // Remove existing modal if any
+                    const existingModal = document.getElementById('diagnosticsModal');
+                    if (existingModal) existingModal.remove();
+                    
+                    // Add modal to body
+                    document.body.insertAdjacentHTML('beforeend', diagnosticsHTML);
+                    
+                    // Show modal
+                    const modal = new bootstrap.Modal(document.getElementById('diagnosticsModal'));
+                    modal.show();
+                } else {
+                    showNotification(`❌ Failed to load diagnostics: ${data.error}`, 'error');
+                }
+            } catch (error) {
+                showNotification('❌ Error loading diagnostics', 'error');
+            }
+        }
+
+        function downloadLogs() {
+            showNotification('📥 Log download feature coming soon', 'info');
+        }
+
+        function showNotification(message, type = 'info') {
+            // Simple notification function
+            const toast = document.createElement('div');
+            toast.className = `alert alert-${type === 'error' ? 'danger' : type} alert-dismissible fade show position-fixed`;
+            toast.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+            toast.innerHTML = `
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            
+            document.body.appendChild(toast);
+            
+            setTimeout(() => {
+                if (toast.parentNode) {
+                    toast.parentNode.removeChild(toast);
+                }
+            }, 5000);
+        }
         // Initialize dashboard when page loads
         document.addEventListener('DOMContentLoaded', () => {
-            new WhatsAppDashboard();
+            const dashboard = new WhatsAppDashboard();
+            
+            // Setup all event listeners
+            setupEventListeners(dashboard);
+            
+            // Load stability info periodically
+            setInterval(() => {
+                dashboard.loadStabilityInfo();
+            }, 10000); // Every 10 seconds
+            
+            // Initial load
+            dashboard.loadStabilityInfo();
         });
+
+        function setupEventListeners(dashboard) {
+            // Connection control buttons
+            document.getElementById('showQrBtn')?.addEventListener('click', () => dashboard.showQrCode());
+            document.getElementById('reconnectBtn')?.addEventListener('click', () => dashboard.reconnect());
+            document.getElementById('logoutBtn')?.addEventListener('click', () => dashboard.logout());
+            document.getElementById('disconnectBtn')?.addEventListener('click', () => dashboard.disconnect());
+            
+            // Auto refresh toggle
+            document.getElementById('autoRefreshToggle')?.addEventListener('click', () => dashboard.toggleAutoRefresh());
+            
+            // Refresh button
+            document.getElementById('refreshBtn')?.addEventListener('click', () => dashboard.refreshAll());
+            
+            // Send message form
+            document.getElementById('sendBtn')?.addEventListener('click', () => dashboard.sendMessage());
+            document.getElementById('messageInput')?.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    dashboard.sendMessage();
+                }
+            });
+
+            // Auto reply form
+            document.getElementById('saveAutoReplyBtn')?.addEventListener('click', () => dashboard.saveAutoReply());
+        }
     </script>
 </body>
 </html>

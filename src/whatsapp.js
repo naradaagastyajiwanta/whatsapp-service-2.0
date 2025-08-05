@@ -19,6 +19,22 @@ class WhatsAppManager {
         this.logger = pino({ level: 'silent' }); // Silent logger untuk mengurangi spam
         this.autoReplyEnabled = true;
         this.autoReplyMessage = "Halo! Pesan Anda telah diterima. Terima kasih! 🙏";
+        
+        // Connection control flags
+        this.isManualDisconnect = false; // Flag untuk disconnect manual
+        this.shouldReconnect = true; // Flag untuk auto-reconnect
+        
+        // Connection stability tracking
+        this.connectionStats = {
+            connectTime: null,
+            disconnectCount: 0,
+            lastDisconnectReason: null,
+            lastDisconnectTime: null,
+            reconnectAttempts: 0,
+            totalReconnectTime: 0,
+            connectionUptime: 0,
+            isStabilizing: false
+        };
     }
 
     async initialize() {
@@ -60,16 +76,56 @@ class WhatsAppManager {
         }
 
         if (connection === 'close') {
-            const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut;
+            const disconnectReason = lastDisconnect?.error?.output?.statusCode;
+            const shouldReconnect = disconnectReason !== DisconnectReason.loggedOut;
             
-            logWithTimestamp(`🔌 Connection closed. Reason: ${lastDisconnect?.error?.output?.statusCode}`, 'warn');
+            // Update connection stats
+            this.connectionStats.disconnectCount++;
+            this.connectionStats.lastDisconnectReason = disconnectReason;
+            this.connectionStats.lastDisconnectTime = Date.now();
+            if (this.connectionStats.connectTime) {
+                this.connectionStats.connectionUptime = Date.now() - this.connectionStats.connectTime;
+            }
             
-            if (shouldReconnect) {
+            logWithTimestamp(`🔌 Connection closed. Reason: ${disconnectReason}`, 'warn');
+            
+            // Jika ini adalah manual disconnect, jangan auto-reconnect
+            if (this.isManualDisconnect) {
+                logWithTimestamp('🛑 Manual disconnect detected - skipping auto-reconnect');
+                this.isConnected = false;
+                this.qrCode = null;
+                this.dbManager.updateConnectionStatus('disconnected');
+                this.isManualDisconnect = false; // Reset flag
+                return;
+            }
+            
+            // Check for problematic disconnect reason 440
+            if (disconnectReason === 440) {
+                logWithTimestamp('⚠️ Reason 440 detected - Session conflict or auth issue', 'warn');
+                
+                // If too many 440 errors, force stabilize
+                if (this.connectionStats.disconnectCount > 3 && !this.connectionStats.isStabilizing) {
+                    logWithTimestamp('🔧 Auto-stabilizing connection due to repeated 440 errors...');
+                    setTimeout(() => this.forceStabilize(), 5000);
+                    return;
+                }
+            }
+            
+            if (shouldReconnect && this.shouldReconnect) {
                 logWithTimestamp('🔄 Attempting to reconnect...');
                 this.isConnected = false;
                 this.qrCode = null;
                 this.dbManager.updateConnectionStatus('reconnecting');
-                setTimeout(() => this.initialize(), 3000);
+                
+                // Add delay for 440 errors to prevent rapid reconnection
+                const delay = disconnectReason === 440 ? 10000 : 3000;
+                setTimeout(() => {
+                    this.connectionStats.reconnectAttempts++;
+                    const reconnectStart = Date.now();
+                    this.initialize().then(() => {
+                        this.connectionStats.totalReconnectTime += Date.now() - reconnectStart;
+                    });
+                }, delay);
             } else {
                 // This is a logout, we should generate new QR automatically
                 logWithTimestamp('🚪 Logged out detected, will generate new QR code');
@@ -92,6 +148,8 @@ class WhatsAppManager {
             logWithTimestamp('✅ WhatsApp connection established successfully!');
             this.isConnected = true;
             this.qrCode = null;
+            this.connectionStats.connectTime = Date.now();
+            this.connectionStats.isStabilizing = false;
             this.dbManager.updateConnectionStatus('connected');
         } else if (connection === 'connecting') {
             logWithTimestamp('🔄 Connecting to WhatsApp...');
@@ -298,12 +356,145 @@ class WhatsAppManager {
     }
 
     async disconnect() {
-        if (this.sock) {
-            await this.sock.end();
+        try {
+            logWithTimestamp('🛑 Manual disconnect requested...');
+            
+            // Set flag untuk manual disconnect
+            this.isManualDisconnect = true;
+            
+            if (this.sock) {
+                await this.sock.end();
+                this.isConnected = false;
+                this.qrCode = null;
+                this.dbManager.updateConnectionStatus('disconnected');
+                logWithTimestamp('👋 WhatsApp disconnected manually');
+            } else {
+                // Jika tidak ada socket, tetap update status
+                this.isConnected = false;
+                this.qrCode = null;
+                this.dbManager.updateConnectionStatus('disconnected');
+                logWithTimestamp('👋 WhatsApp disconnected (no active connection)');
+            }
+        } catch (error) {
+            logWithTimestamp(`❌ Error during manual disconnect: ${error.message}`, 'error');
+            // Reset flag jika error
+            this.isManualDisconnect = false;
+            throw error;
+        }
+    }
+
+    async reconnectManual() {
+        try {
+            logWithTimestamp('🔄 Manual reconnect requested...');
+            
+            // Reset flags untuk manual reconnect
+            this.isManualDisconnect = false;
+            this.shouldReconnect = true;
+            
+            // Jika sudah ada koneksi, disconnect dulu
+            if (this.sock) {
+                await this.sock.end();
+            }
+            
+            // Reset state
             this.isConnected = false;
             this.qrCode = null;
-            this.dbManager.updateConnectionStatus('disconnected');
-            logWithTimestamp('👋 WhatsApp disconnected');
+            
+            // Initialize ulang
+            await this.initialize();
+            logWithTimestamp('✅ Manual reconnection initiated successfully');
+        } catch (error) {
+            logWithTimestamp(`❌ Error during manual reconnection: ${error.message}`, 'error');
+            throw error;
+        }
+    }
+
+    // Get connection stability information
+    getConnectionStability() {
+        const now = Date.now();
+        const avgReconnectTime = this.connectionStats.reconnectAttempts > 0 
+            ? this.connectionStats.totalReconnectTime / this.connectionStats.reconnectAttempts 
+            : 0;
+
+        return {
+            disconnectCount: this.connectionStats.disconnectCount,
+            lastDisconnectReason: this.connectionStats.lastDisconnectReason,
+            lastDisconnectTime: this.connectionStats.lastDisconnectTime,
+            reconnectAttempts: this.connectionStats.reconnectAttempts,
+            avgReconnectTime: Math.round(avgReconnectTime),
+            connectionUptime: this.connectionStats.connectTime 
+                ? now - this.connectionStats.connectTime 
+                : this.connectionStats.connectionUptime,
+            isStabilizing: this.connectionStats.isStabilizing
+        };
+    }
+
+    // Get comprehensive diagnostics
+    getDiagnostics() {
+        const stability = this.getConnectionStability();
+        const connectionStatus = this.getConnectionStatus();
+        
+        return {
+            ...stability,
+            currentStatus: connectionStatus,
+            authFilesExist: fs.existsSync('./auth'),
+            memoryUsage: process.memoryUsage(),
+            uptime: process.uptime(),
+            timestamp: new Date().toISOString()
+        };
+    }
+
+    // Force stabilize connection (nuclear option for persistent issues)
+    async forceStabilize() {
+        try {
+            this.connectionStats.isStabilizing = true;
+            logWithTimestamp('🔧 Force stabilizing WhatsApp connection...');
+            
+            // Step 1: Disconnect current session
+            if (this.sock) {
+                try {
+                    await this.sock.end();
+                } catch (error) {
+                    logWithTimestamp(`⚠️ Error ending socket: ${error.message}`, 'warn');
+                }
+            }
+            
+            // Step 2: Clear authentication session
+            await this.clearAuthSession();
+            
+            // Step 3: Reset connection stats
+            this.connectionStats = {
+                connectTime: null,
+                disconnectCount: 0,
+                lastDisconnectReason: null,
+                lastDisconnectTime: null,
+                reconnectAttempts: 0,
+                totalReconnectTime: 0,
+                connectionUptime: 0,
+                isStabilizing: true
+            };
+            
+            // Step 4: Reset state
+            this.isConnected = false;
+            this.qrCode = null;
+            this.sock = null;
+            
+            // Step 5: Wait longer before reinitializing
+            logWithTimestamp('⏳ Waiting 15 seconds before fresh initialization...');
+            setTimeout(async () => {
+                try {
+                    await this.initialize();
+                    logWithTimestamp('✅ Force stabilization completed');
+                } catch (error) {
+                    logWithTimestamp(`❌ Error during force stabilization: ${error.message}`, 'error');
+                    this.connectionStats.isStabilizing = false;
+                }
+            }, 15000);
+            
+        } catch (error) {
+            logWithTimestamp(`❌ Error in force stabilization: ${error.message}`, 'error');
+            this.connectionStats.isStabilizing = false;
+            throw error;
         }
     }
 }
