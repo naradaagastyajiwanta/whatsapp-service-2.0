@@ -185,6 +185,37 @@
             animation: pulse 2s infinite;
         }
 
+        /* Auto Reply Switch Styling */
+        .form-check-input:checked {
+            background-color: var(--whatsapp-primary);
+            border-color: var(--whatsapp-primary);
+            box-shadow: 0 0 0 0.25rem rgba(37, 211, 102, 0.25);
+        }
+
+        .form-check-input:focus {
+            border-color: var(--whatsapp-primary);
+            box-shadow: 0 0 0 0.25rem rgba(37, 211, 102, 0.25);
+        }
+
+        .auto-reply-status .badge {
+            font-size: 0.8rem;
+            padding: 6px 12px;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            border-radius: 15px;
+            transition: all 0.3s ease;
+        }
+
+        .auto-reply-status .badge.bg-success {
+            background: linear-gradient(135deg, #28a745, #20c997) !important;
+            box-shadow: 0 2px 4px rgba(40, 167, 69, 0.3);
+        }
+
+        .auto-reply-status .badge.bg-secondary {
+            background: linear-gradient(135deg, #6c757d, #5a6268) !important;
+            box-shadow: 0 2px 4px rgba(108, 117, 125, 0.3);
+        }
+
         /* Modal improvements */
         .modal-content {
             border: none;
@@ -580,11 +611,17 @@
             <div class="col-md-3">
                 <div class="card">
                     <div class="card-body text-center">
-                        <h5 class="card-title"><i class="fas fa-robot me-2"></i>Auto Reply</h5>
-                        <div class="form-check form-switch d-flex justify-content-center">
-                            <input class="form-check-input" type="checkbox" id="autoReplyToggle" checked>
+                        <h5 class="card-title"><i class="fas fa-robot me-2 text-primary"></i>Auto Reply</h5>
+                        <div class="form-check form-switch d-flex justify-content-center mb-2">
+                            <input class="form-check-input" type="checkbox" id="autoReplyToggle" checked 
+                                   style="font-size: 1.2rem; width: 2.5rem; height: 1.3rem;">
                         </div>
-                        <small class="text-muted">Auto response enabled</small>
+                        <div class="auto-reply-status">
+                            <span id="autoReplyStatusText" class="badge bg-success">
+                                <i class="fas fa-check-circle me-1"></i>ENABLED
+                            </span>
+                        </div>
+                        <small class="text-muted mt-1 d-block">Automatic message responses</small>
                     </div>
                 </div>
             </div>
@@ -951,6 +988,27 @@
                 document.getElementById('logoutBtn').addEventListener('click', () => {
                     this.logoutWhatsApp();
                 });
+
+                // QR Modal close events
+                const qrModal = document.getElementById('qrModal');
+                qrModal.addEventListener('hidden.bs.modal', () => {
+                    console.log('QR Modal closed');
+                    // Force cleanup any remaining backdrop
+                    setTimeout(() => {
+                        const backdrops = document.querySelectorAll('.modal-backdrop');
+                        backdrops.forEach(backdrop => backdrop.remove());
+                        document.body.classList.remove('modal-open');
+                        document.body.style.removeProperty('overflow');
+                        document.body.style.removeProperty('padding-right');
+                    }, 50);
+                });
+
+                // Close modal on ESC key
+                document.addEventListener('keydown', (e) => {
+                    if (e.key === 'Escape') {
+                        this.closeQrModal();
+                    }
+                });
             }
 
             async loadInitialData() {
@@ -1070,6 +1128,7 @@
 
             async toggleAutoReply(enabled) {
                 const message = document.getElementById('autoReplyMessage').value;
+                const autoReplyStatusText = document.getElementById('autoReplyStatusText');
                 
                 try {
                     const response = await fetch(`${this.baseURL}/auto-reply`, {
@@ -1086,14 +1145,41 @@
                     const data = await response.json();
 
                     if (data.success) {
+                        // Update visual status immediately
+                        if (autoReplyStatusText) {
+                            if (enabled) {
+                                autoReplyStatusText.innerHTML = '<i class="fas fa-check-circle me-1"></i>ENABLED';
+                                autoReplyStatusText.className = 'badge bg-success';
+                            } else {
+                                autoReplyStatusText.innerHTML = '<i class="fas fa-times-circle me-1"></i>DISABLED';
+                                autoReplyStatusText.className = 'badge bg-secondary';
+                            }
+                        }
+                        
+                        // Update main dashboard status
+                        document.getElementById('autoReplyStatus').textContent = enabled ? 'ON' : 'OFF';
+                        document.getElementById('autoReplyStatus').className = enabled ? 'text-success' : 'text-muted';
+                        
                         this.showNotification(`🔄 Auto reply ${enabled ? 'enabled' : 'disabled'} successfully`, 'success');
+                    } else {
+                        // Revert toggle if API call failed
+                        document.getElementById('autoReplyToggle').checked = !enabled;
+                        this.showNotification(`❌ Failed to ${enabled ? 'enable' : 'disable'} auto reply: ${data.error}`, 'error');
                     }
                 } catch (error) {
                     console.error('Error toggling auto reply:', error);
+                    // Revert toggle if network error
+                    document.getElementById('autoReplyToggle').checked = !enabled;
+                    this.showNotification('🔌 Network error while toggling auto reply', 'error');
                 }
             }
 
             async showQrCode() {
+                // Clean up any existing backdrops first
+                const existingBackdrops = document.querySelectorAll('.modal-backdrop');
+                existingBackdrops.forEach(backdrop => backdrop.remove());
+                document.body.classList.remove('modal-open');
+                
                 const modal = new bootstrap.Modal(document.getElementById('qrModal'));
                 const qrContainer = document.getElementById('qrCodeContainer');
                 const qrInstructions = document.getElementById('qrInstructions');
@@ -1278,6 +1364,30 @@
             async reconnect() { return this.reconnectWhatsApp(); }
             async logout() { return this.logoutWhatsApp(); }
             
+            // Function to close QR modal
+            closeQrModal() {
+                const qrModal = document.getElementById('qrModal');
+                if (qrModal) {
+                    const modal = bootstrap.Modal.getInstance(qrModal);
+                    if (modal) {
+                        modal.hide();
+                    } else {
+                        // If no instance exists, create one and hide it
+                        const newModal = new bootstrap.Modal(qrModal);
+                        newModal.hide();
+                    }
+                    
+                    // Force remove any remaining backdrop
+                    setTimeout(() => {
+                        const backdrops = document.querySelectorAll('.modal-backdrop');
+                        backdrops.forEach(backdrop => backdrop.remove());
+                        document.body.classList.remove('modal-open');
+                        document.body.style.removeProperty('overflow');
+                        document.body.style.removeProperty('padding-right');
+                    }, 100);
+                }
+            }
+            
             async disconnect() {
                 const disconnectBtn = document.getElementById('disconnectBtn');
                 const originalText = disconnectBtn.innerHTML;
@@ -1335,6 +1445,8 @@
                     // Show success notification when just connected
                     if (prevStatus !== 'Connected') {
                         this.showNotification('🎉 WhatsApp connected successfully!', 'success');
+                        // Auto close QR modal if it's open
+                        this.closeQrModal();
                     }
                 } else if (waStatus.hasQR) {
                     status = 'Waiting for QR Scan';
@@ -1362,6 +1474,18 @@
                 // Update stats
                 document.getElementById('autoReplyStatus').textContent = waStatus.autoReplyEnabled ? 'ON' : 'OFF';
                 document.getElementById('autoReplyStatus').className = waStatus.autoReplyEnabled ? 'text-success' : 'text-muted';
+                
+                // Update auto reply status badge
+                const autoReplyStatusText = document.getElementById('autoReplyStatusText');
+                if (autoReplyStatusText) {
+                    if (waStatus.autoReplyEnabled) {
+                        autoReplyStatusText.innerHTML = '<i class="fas fa-check-circle me-1"></i>ENABLED';
+                        autoReplyStatusText.className = 'badge bg-success';
+                    } else {
+                        autoReplyStatusText.innerHTML = '<i class="fas fa-times-circle me-1"></i>DISABLED';
+                        autoReplyStatusText.className = 'badge bg-secondary';
+                    }
+                }
 
                 // Enable/disable buttons based on status
                 reconnectBtn.disabled = waStatus.isConnected && !waStatus.hasQR;
@@ -1467,19 +1591,31 @@
                     const response = await fetch('/api/status');
                     const data = await response.json();
                     
-                    if (data.stability) {
-                        const stability = data.stability;
+                    if (data.success && data.whatsapp && data.whatsapp.stability) {
+                        const stability = data.whatsapp.stability;
                         
+                        // Update metrics with proper formatting
                         document.getElementById('disconnectCount').textContent = stability.disconnectCount || 0;
                         document.getElementById('avgReconnectTime').textContent = stability.avgReconnectTime 
-                            ? `${stability.avgReconnectTime}ms` : '-';
+                            ? `${stability.avgReconnectTime}ms` : '0ms';
                         document.getElementById('connectionUptime').textContent = stability.connectionUptime 
-                            ? this.formatUptime(stability.connectionUptime) : '-';
+                            ? this.formatUptime(stability.connectionUptime) : 'Just started';
                         document.getElementById('lastDisconnectReason').textContent = 
-                            stability.lastDisconnectReason || 'None';
+                            stability.lastDisconnectReason ? `Reason ${stability.lastDisconnectReason}` : 'No disconnects';
+                    } else {
+                        // Default values when no stability data
+                        document.getElementById('disconnectCount').textContent = '0';
+                        document.getElementById('avgReconnectTime').textContent = '0ms';
+                        document.getElementById('connectionUptime').textContent = 'Initializing...';
+                        document.getElementById('lastDisconnectReason').textContent = 'No disconnects';
                     }
                 } catch (error) {
                     console.error('Error loading stability info:', error);
+                    // Set error state
+                    document.getElementById('disconnectCount').textContent = 'Error';
+                    document.getElementById('avgReconnectTime').textContent = 'Error';
+                    document.getElementById('connectionUptime').textContent = 'Error';
+                    document.getElementById('lastDisconnectReason').textContent = 'Error';
                 }
             }
 
