@@ -55,6 +55,7 @@
             box-shadow: var(--shadow-light);
             transition: var(--transition);
             overflow: hidden;
+            margin-bottom: 1.5rem;
         }
         .card:hover {
             box-shadow: var(--shadow-medium);
@@ -396,17 +397,29 @@
         }
 
         /* Responsive container spacing */
+        .container-fluid {
+            padding: 1rem 1.5rem;
+        }
         @media (min-width: 576px) {
-            .container-fluid { padding-left: 2rem; padding-right: 2rem; }
+            .container-fluid { padding: 1.25rem 2.5rem; }
         }
         @media (min-width: 768px) {
-            .container-fluid { padding-left: 3rem; padding-right: 3rem; }
+            .container-fluid { padding: 1.5rem 3.5rem; }
         }
         @media (min-width: 992px) {
-            .container-fluid { padding-left: 4rem; padding-right: 4rem; }
+            .container-fluid { padding: 1.75rem 4.5rem; }
         }
         @media (min-width: 1200px) {
-            .container-fluid { padding-left: 5rem; padding-right: 5rem; }
+            .container-fluid { padding: 2rem 6rem; }
+        }
+
+        /* Additional spacing for main sections */
+        .row.mb-4 {
+            margin-bottom: 2rem !important;
+        }
+        
+        .row.mb-5 {
+            margin-bottom: 3rem !important;
         }
     </style>
 </head>
@@ -584,7 +597,7 @@
         </div>
 
         <!-- Additional Stats -->
-        <div class="row mb-4">
+        <div class="row mb-5 mt-5">
                     <div class="card-body text-center">
                         <h5 class="card-title"><i class="fas fa-comments me-2"></i>Total Messages</h5>
                         <h3 id="totalMessages" class="text-primary">0</h3>
