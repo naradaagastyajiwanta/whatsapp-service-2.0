@@ -129,10 +129,16 @@
             background: linear-gradient(135deg, var(--whatsapp-dark), var(--whatsapp-secondary)) !important;
             box-shadow: var(--shadow-medium);
             backdrop-filter: blur(10px);
+            position: relative;
+            z-index: 1000;
         }
         .navbar-brand {
             font-weight: 700;
             font-size: 1.5rem;
+        }
+
+        .navbar .nav-item.dropdown {
+            position: relative;
         }
 
         /* Message row improvements */
@@ -328,6 +334,80 @@
             color: white;
             font-size: 1.1rem;
         }
+
+        /* Container margins */
+        .container-fluid {
+            max-width: 1400px;
+        }
+
+        /* API Documentation styles */
+        .dropdown-menu {
+            border: none;
+            box-shadow: var(--shadow-medium);
+            border-radius: var(--border-radius);
+            z-index: 9999 !important;
+            position: absolute !important;
+        }
+
+        .navbar .dropdown {
+            position: static;
+        }
+
+        .navbar .dropdown-menu {
+            position: absolute;
+            z-index: 9999;
+            min-width: 280px;
+        }
+
+        .dropdown-header {
+            background: linear-gradient(135deg, var(--whatsapp-primary), var(--whatsapp-secondary));
+            color: white;
+            font-weight: 600;
+            margin: 0 -1rem;
+            padding: 0.5rem 1rem;
+        }
+
+        .dropdown-item {
+            transition: var(--transition);
+            border-radius: 4px;
+            margin: 2px 8px;
+        }
+
+        .dropdown-item:hover {
+            background: linear-gradient(135deg, var(--whatsapp-primary), var(--whatsapp-secondary));
+            color: white;
+            transform: translateX(5px);
+        }
+
+        /* API Modal styles */
+        .modal-xl {
+            max-width: 95%;
+        }
+
+        .modal-body pre {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        /* Badge improvements */
+        .badge {
+            font-size: 0.8rem;
+            padding: 6px 12px;
+        }
+
+        /* Responsive container spacing */
+        @media (min-width: 576px) {
+            .container-fluid { padding-left: 2rem; padding-right: 2rem; }
+        }
+        @media (min-width: 768px) {
+            .container-fluid { padding-left: 3rem; padding-right: 3rem; }
+        }
+        @media (min-width: 992px) {
+            .container-fluid { padding-left: 4rem; padding-right: 4rem; }
+        }
+        @media (min-width: 1200px) {
+            .container-fluid { padding-left: 5rem; padding-right: 5rem; }
+        }
     </style>
 </head>
 <body>
@@ -351,18 +431,64 @@
             <a class="navbar-brand animate__animated animate__fadeInLeft" href="#">
                 <i class="fab fa-whatsapp me-2"></i>WhatsApp Service Dashboard
             </a>
-            <div class="d-flex align-items-center">
-                <span id="connectionStatus" class="badge status-disconnected me-3 status-badge">
-                    <i class="fas fa-circle me-1"></i>Disconnected
-                </span>
-                <button id="refreshBtn" class="btn btn-outline-light btn-sm animate__animated animate__fadeInRight">
-                    <i class="fas fa-sync-alt"></i> Refresh
-                </button>
+            
+            <!-- Navbar Toggle for Mobile -->
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            
+            <!-- Navbar Content -->
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="apiDocsDropdown" role="button" data-bs-toggle="dropdown">
+                            <i class="fas fa-book me-1"></i>API Documentation
+                        </a>
+                        <ul class="dropdown-menu">
+                            <li><h6 class="dropdown-header"><i class="fas fa-cogs me-1"></i>Connection</h6></li>
+                            <li><a class="dropdown-item" href="#" onclick="showApiExample('GET', '/status')">
+                                <i class="fas fa-info-circle me-2 text-info"></i>Get Status
+                            </a></li>
+                            <li><a class="dropdown-item" href="#" onclick="showApiExample('GET', '/qr')">
+                                <i class="fas fa-qrcode me-2 text-info"></i>Get QR Code
+                            </a></li>
+                            <li><a class="dropdown-item" href="#" onclick="showApiExample('POST', '/reconnect')">
+                                <i class="fas fa-sync me-2 text-warning"></i>Reconnect
+                            </a></li>
+                            <li><a class="dropdown-item" href="#" onclick="showApiExample('POST', '/logout')">
+                                <i class="fas fa-sign-out-alt me-2 text-danger"></i>Logout
+                            </a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><h6 class="dropdown-header"><i class="fas fa-comments me-1"></i>Messages</h6></li>
+                            <li><a class="dropdown-item" href="#" onclick="showApiExample('POST', '/send')">
+                                <i class="fas fa-paper-plane me-2 text-success"></i>Send Message
+                            </a></li>
+                            <li><a class="dropdown-item" href="#" onclick="showApiExample('GET', '/messages')">
+                                <i class="fas fa-envelope me-2 text-info"></i>Get Messages
+                            </a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><h6 class="dropdown-header"><i class="fas fa-tools me-1"></i>Utilities</h6></li>
+                            <li><a class="dropdown-item" href="#" onclick="showApiExample('GET', '/health')">
+                                <i class="fas fa-heartbeat me-2 text-success"></i>Health Check
+                            </a></li>
+                        </ul>
+                    </li>
+                </ul>
+                
+                <div class="d-flex align-items-center">
+                    <span id="connectionStatus" class="badge status-disconnected me-3 status-badge">
+                        <i class="fas fa-circle me-1"></i>Disconnected
+                    </span>
+                    <button id="refreshBtn" class="btn btn-outline-light btn-sm animate__animated animate__fadeInRight">
+                        <i class="fas fa-sync-alt"></i> Refresh
+                    </button>
+                </div>
             </div>
         </div>
     </nav>
 
-    <div class="container mt-4">
+    <!-- Main Container with proper margins -->
+    <div class="container-fluid px-3 px-md-4 px-lg-5 mt-4">
         <!-- Stats Cards -->
         <div class="row mb-4 animate__animated animate__fadeInUp">
             <div class="col-lg-3 col-md-6 mb-3">
@@ -501,6 +627,74 @@
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
                         <button type="button" id="refreshQrBtn" class="btn btn-primary">
                             <i class="fas fa-sync-alt me-2"></i>Refresh QR Code
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- API Documentation Modal -->
+        <div class="modal fade" id="apiModal" tabindex="-1" aria-labelledby="apiModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-xl">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="apiModalLabel">
+                            <i class="fas fa-book me-2"></i>API Documentation
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="row">
+                            <div class="col-md-8">
+                                <div id="apiExample">
+                                    <div class="text-center text-muted py-5">
+                                        <i class="fas fa-hand-pointer fa-3x mb-3"></i>
+                                        <h4>Select an API endpoint</h4>
+                                        <p>Choose an endpoint from the dropdown menu above to see the documentation and example usage.</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="card bg-light">
+                                    <div class="card-header">
+                                        <h6 class="mb-0"><i class="fas fa-info-circle me-2"></i>Quick Info</h6>
+                                    </div>
+                                    <div class="card-body">
+                                        <p><strong>Base URL:</strong> <code id="baseUrl">http://localhost:3000</code></p>
+                                        <p><strong>Content-Type:</strong> <code>application/json</code></p>
+                                        <p><strong>Response Format:</strong> JSON</p>
+                                        <hr>
+                                        <h6>Response Structure:</h6>
+                                        <pre class="bg-dark text-light p-2 rounded"><code>{
+  "success": true|false,
+  "data": {...},
+  "message": "...",
+  "timestamp": "ISO 8601"
+}</code></pre>
+                                    </div>
+                                </div>
+                                
+                                <div class="card bg-light mt-3">
+                                    <div class="card-header">
+                                        <h6 class="mb-0"><i class="fas fa-test-tube me-2"></i>Test API</h6>
+                                    </div>
+                                    <div class="card-body">
+                                        <button id="testApiBtn" class="btn btn-primary w-100 mb-2" disabled>
+                                            <i class="fas fa-play me-2"></i>Test This Endpoint
+                                        </button>
+                                        <div id="testResult" class="mt-2" style="display: none;">
+                                            <small class="text-muted">Response:</small>
+                                            <pre id="testResponseCode" class="bg-dark text-light p-2 rounded mt-1" style="font-size: 0.8rem; max-height: 200px; overflow-y: auto;"></pre>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                        <button type="button" id="copyApiBtn" class="btn btn-primary" disabled>
+                            <i class="fas fa-copy me-2"></i>Copy Example
                         </button>
                     </div>
                 </div>
@@ -1324,6 +1518,319 @@
                 }
             }, 5000);
         }
+
+        // API Documentation Functions
+        function showApiExample(method, endpoint) {
+            const apiModal = new bootstrap.Modal(document.getElementById('apiModal'));
+            const apiExample = document.getElementById('apiExample');
+            const testApiBtn = document.getElementById('testApiBtn');
+            const copyApiBtn = document.getElementById('copyApiBtn');
+            
+            // Update base URL
+            document.getElementById('baseUrl').textContent = window.location.origin;
+            
+            let exampleContent = '';
+            let testData = null;
+            
+            switch(endpoint) {
+                case '/status':
+                    exampleContent = `
+                        <h4><span class="badge bg-info">${method}</span> ${endpoint}</h4>
+                        <p class="text-muted">Get current WhatsApp connection status and statistics</p>
+                        
+                        <h6>Request:</h6>
+                        <pre class="bg-dark text-light p-3 rounded"><code>curl -X ${method} "${window.location.origin}${endpoint}"</code></pre>
+                        
+                        <h6>Response Example:</h6>
+                        <pre class="bg-dark text-light p-3 rounded"><code>{
+  "success": true,
+  "whatsapp": {
+    "isConnected": true,
+    "hasQR": false,
+    "qrCode": null,
+    "status": "connected",
+    "stability": {
+      "disconnectCount": 2,
+      "reconnectAttempts": 1,
+      "avgReconnectTime": 3500,
+      "connectionUptime": 1800000
+    }
+  },
+  "database": {
+    "connected": true,
+    "messagesCount": 150
+  },
+  "timestamp": "2025-08-06T10:30:00.000Z"
+}</code></pre>
+                    `;
+                    testData = { method, endpoint };
+                    break;
+                    
+                case '/send':
+                    exampleContent = `
+                        <h4><span class="badge bg-success">${method}</span> ${endpoint}</h4>
+                        <p class="text-muted">Send a WhatsApp message to a phone number</p>
+                        
+                        <h6>Request:</h6>
+                        <pre class="bg-dark text-light p-3 rounded"><code>curl -X ${method} "${window.location.origin}${endpoint}" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "phoneNumber": "081234567890",
+    "message": "Hello from WhatsApp API!"
+  }'</code></pre>
+                        
+                        <div class="alert alert-warning">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            <strong>Requirements:</strong> WhatsApp must be connected to send messages.
+                        </div>
+                        
+                        <h6>Request Body:</h6>
+                        <table class="table table-sm">
+                            <thead><tr><th>Field</th><th>Type</th><th>Required</th><th>Description</th></tr></thead>
+                            <tbody>
+                                <tr><td><code>phoneNumber</code></td><td>string</td><td>✅</td><td>Phone number (081234567890, +62812345, etc.)</td></tr>
+                                <tr><td><code>message</code></td><td>string</td><td>✅</td><td>Message text to send</td></tr>
+                            </tbody>
+                        </table>
+                        
+                        <h6>Response Example:</h6>
+                        <pre class="bg-dark text-light p-3 rounded"><code>{
+  "success": true,
+  "data": {
+    "messageId": "3EB0C67C04D2C3A0B20D",
+    "to": "+62812345678",
+    "message": "Message sent successfully"
+  },
+  "timestamp": "2025-08-06T10:30:00.000Z"
+}</code></pre>
+                    `;
+                    testData = { method, endpoint, body: { phoneNumber: "081234567890", message: "Test message from API docs" } };
+                    break;
+                    
+                case '/messages':
+                    exampleContent = `
+                        <h4><span class="badge bg-info">${method}</span> ${endpoint}</h4>
+                        <p class="text-muted">Retrieve message history with optional filtering</p>
+                        
+                        <h6>Request:</h6>
+                        <pre class="bg-dark text-light p-3 rounded"><code>curl -X ${method} "${window.location.origin}${endpoint}?limit=50&phone=081234567890"</code></pre>
+                        
+                        <h6>Query Parameters:</h6>
+                        <table class="table table-sm">
+                            <thead><tr><th>Parameter</th><th>Type</th><th>Default</th><th>Description</th></tr></thead>
+                            <tbody>
+                                <tr><td><code>limit</code></td><td>number</td><td>100</td><td>Maximum number of messages to return</td></tr>
+                                <tr><td><code>phone</code></td><td>string</td><td>-</td><td>Filter by specific phone number</td></tr>
+                            </tbody>
+                        </table>
+                        
+                        <h6>Response Example:</h6>
+                        <pre class="bg-dark text-light p-3 rounded"><code>{
+  "success": true,
+  "data": [
+    {
+      "id": 1,
+      "messageId": "3EB0C67C04D2C3A0B20D",
+      "from": "+62812345678",
+      "to": "self",
+      "content": "Hello! How are you?",
+      "type": "text",
+      "direction": "incoming",
+      "status": "received",
+      "timestamp": "2025-08-06T09:15:00.000Z"
+    }
+  ],
+  "count": 1,
+  "timestamp": "2025-08-06T10:30:00.000Z"
+}</code></pre>
+                    `;
+                    testData = { method, endpoint };
+                    break;
+                    
+                case '/qr':
+                    exampleContent = `
+                        <h4><span class="badge bg-info">${method}</span> ${endpoint}</h4>
+                        <p class="text-muted">Get the current QR code for WhatsApp authentication</p>
+                        
+                        <h6>Request:</h6>
+                        <pre class="bg-dark text-light p-3 rounded"><code>curl -X ${method} "${window.location.origin}${endpoint}"</code></pre>
+                        
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>
+                            <strong>Note:</strong> QR code is only available when WhatsApp is not connected.
+                        </div>
+                        
+                        <h6>Response Example (QR Available):</h6>
+                        <pre class="bg-dark text-light p-3 rounded"><code>{
+  "success": true,
+  "qrCode": "1@abc123...",
+  "message": "QR Code available for scanning"
+}</code></pre>
+                        
+                        <h6>Response Example (No QR):</h6>
+                        <pre class="bg-dark text-light p-3 rounded"><code>{
+  "success": false,
+  "message": "No QR Code available. WhatsApp might be connected..."
+}</code></pre>
+                        
+                        <div class="mt-3">
+                            <h6>Related Endpoints:</h6>
+                            <ul>
+                                <li><code>GET /qr/image</code> - Get QR code as PNG image</li>
+                            </ul>
+                        </div>
+                    `;
+                    testData = { method, endpoint };
+                    break;
+                    
+                case '/reconnect':
+                    exampleContent = `
+                        <h4><span class="badge bg-warning">${method}</span> ${endpoint}</h4>
+                        <p class="text-muted">Manually reconnect to WhatsApp</p>
+                        
+                        <h6>Request:</h6>
+                        <pre class="bg-dark text-light p-3 rounded"><code>curl -X ${method} "${window.location.origin}${endpoint}" \\
+  -H "Content-Type: application/json"</code></pre>
+                        
+                        <div class="alert alert-warning">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            <strong>Caution:</strong> This will disconnect and reconnect the WhatsApp session.
+                        </div>
+                        
+                        <h6>Response Example:</h6>
+                        <pre class="bg-dark text-light p-3 rounded"><code>{
+  "success": true,
+  "message": "WhatsApp manual reconnection initiated",
+  "timestamp": "2025-08-06T10:30:00.000Z"
+}</code></pre>
+                    `;
+                    testData = { method, endpoint };
+                    break;
+                    
+                case '/logout':
+                    exampleContent = `
+                        <h4><span class="badge bg-danger">${method}</span> ${endpoint}</h4>
+                        <p class="text-muted">Logout from WhatsApp and clear authentication session</p>
+                        
+                        <h6>Request:</h6>
+                        <pre class="bg-dark text-light p-3 rounded"><code>curl -X ${method} "${window.location.origin}${endpoint}" \\
+  -H "Content-Type: application/json"</code></pre>
+                        
+                        <div class="alert alert-danger">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            <strong>Warning:</strong> This will completely logout and require QR code scanning again.
+                        </div>
+                        
+                        <h6>Response Example:</h6>
+                        <pre class="bg-dark text-light p-3 rounded"><code>{
+  "success": true,
+  "message": "WhatsApp logged out successfully. Session removed.",
+  "timestamp": "2025-08-06T10:30:00.000Z"
+}</code></pre>
+                    `;
+                    testData = { method, endpoint };
+                    break;
+                    
+                case '/health':
+                    exampleContent = `
+                        <h4><span class="badge bg-success">${method}</span> ${endpoint}</h4>
+                        <p class="text-muted">Check if the API service is running and healthy</p>
+                        
+                        <h6>Request:</h6>
+                        <pre class="bg-dark text-light p-3 rounded"><code>curl -X ${method} "${window.location.origin}${endpoint}"</code></pre>
+                        
+                        <div class="alert alert-success">
+                            <i class="fas fa-check-circle me-2"></i>
+                            <strong>Always Available:</strong> This endpoint works even if WhatsApp is not connected.
+                        </div>
+                        
+                        <h6>Response Example:</h6>
+                        <pre class="bg-dark text-light p-3 rounded"><code>{
+  "status": "ok",
+  "timestamp": "2025-08-06T10:30:00.000Z",
+  "service": "WhatsApp Service API"
+}</code></pre>
+                    `;
+                    testData = { method, endpoint };
+                    break;
+                    
+                default:
+                    exampleContent = '<p class="text-muted">API documentation not available for this endpoint.</p>';
+            }
+            
+            apiExample.innerHTML = exampleContent;
+            
+            // Setup test button
+            if (testData) {
+                testApiBtn.disabled = false;
+                testApiBtn.onclick = () => testApiEndpoint(testData);
+                copyApiBtn.disabled = false;
+                copyApiBtn.onclick = () => copyApiExample(method, endpoint, testData.body);
+            } else {
+                testApiBtn.disabled = true;
+                copyApiBtn.disabled = true;
+            }
+            
+            apiModal.show();
+        }
+        
+        async function testApiEndpoint(data) {
+            const testResult = document.getElementById('testResult');
+            const testResponseCode = document.getElementById('testResponseCode');
+            const testApiBtn = document.getElementById('testApiBtn');
+            
+            try {
+                testApiBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Testing...';
+                testApiBtn.disabled = true;
+                
+                const url = window.location.origin + data.endpoint;
+                const options = {
+                    method: data.method,
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                };
+                
+                if (data.body) {
+                    options.body = JSON.stringify(data.body);
+                }
+                
+                const response = await fetch(url, options);
+                const result = await response.json();
+                
+                testResponseCode.textContent = JSON.stringify(result, null, 2);
+                testResult.style.display = 'block';
+                
+                if (response.ok) {
+                    testResponseCode.className = 'bg-success text-light p-2 rounded mt-1';
+                } else {
+                    testResponseCode.className = 'bg-danger text-light p-2 rounded mt-1';
+                }
+                
+            } catch (error) {
+                testResponseCode.textContent = JSON.stringify({ error: error.message }, null, 2);
+                testResponseCode.className = 'bg-danger text-light p-2 rounded mt-1';
+                testResult.style.display = 'block';
+            } finally {
+                testApiBtn.innerHTML = '<i class="fas fa-play me-2"></i>Test This Endpoint';
+                testApiBtn.disabled = false;
+            }
+        }
+        
+        function copyApiExample(method, endpoint, body) {
+            let curlCommand = `curl -X ${method} "${window.location.origin}${endpoint}"`;
+            
+            if (body) {
+                curlCommand += ` \\\n  -H "Content-Type: application/json" \\\n  -d '${JSON.stringify(body, null, 2)}'`;
+            }
+            
+            navigator.clipboard.writeText(curlCommand).then(() => {
+                showNotification('📋 API example copied to clipboard!', 'success');
+            }).catch(() => {
+                showNotification('❌ Failed to copy to clipboard', 'error');
+            });
+        }
+
         // Initialize dashboard when page loads
         document.addEventListener('DOMContentLoaded', () => {
             const dashboard = new WhatsAppDashboard();
