@@ -65,12 +65,14 @@ class WhatsAppManager {
     handleConnectionUpdate(update) {
         const { connection, lastDisconnect, qr } = update;
 
-        if (qr) {
+        if (qr && !this.isConnected) {
             logWithTimestamp('📱 QR Code received, please scan with your WhatsApp mobile app:');
             console.log('\n📱 SCAN QR CODE BELOW WITH YOUR WHATSAPP:\n');
             qrcode.generate(qr, { small: true });
             this.qrCode = qr;
             this.dbManager.updateConnectionStatus('waiting_qr');
+        } else if (qr && this.isConnected) {
+            logWithTimestamp('⚠️ QR Code received but already connected, ignoring...');
         }
 
         if (connection === 'close') {
