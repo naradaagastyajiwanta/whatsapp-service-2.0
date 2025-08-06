@@ -21,6 +21,7 @@ class WhatsAppManager {
         // Connection control flags
         this.isManualDisconnect = false; // Flag untuk disconnect manual
         this.shouldReconnect = true; // Flag untuk auto-reconnect
+        this.heartbeatInterval = null; // Heartbeat untuk menjaga koneksi
         
         // Connection stability tracking
         this.connectionStats = {
@@ -31,7 +32,8 @@ class WhatsAppManager {
             reconnectAttempts: 0,
             totalReconnectTime: 0,
             connectionUptime: 0,
-            isStabilizing: false
+            isStabilizing: false,
+            lastHeartbeat: null
         };
     }
 
@@ -42,12 +44,22 @@ class WhatsAppManager {
             // Load authentication state
             const { state, saveCreds } = await useMultiFileAuthState('./auth');
             
-            // Create socket connection
+            // Create socket connection with improved settings
             this.sock = makeWASocket({
                 auth: state,
                 logger: this.logger,
                 printQRInTerminal: false, // We'll handle QR ourselves
                 defaultQueryTimeoutMs: 60000,
+                connectTimeoutMs: 60000,
+                keepAliveIntervalMs: 10000,
+                markOnlineOnConnect: true,
+                syncFullHistory: false,
+                browser: ["WhatsApp Service", "Chrome", "1.0.0"],
+                getMessage: async (key) => {
+                    return {
+                        conversation: "Hello, this is a WhatsApp service bot!"
+                    }
+                }
             });
 
             // Event listeners
@@ -94,8 +106,28 @@ class WhatsAppManager {
                 logWithTimestamp('🛑 Manual disconnect detected - skipping auto-reconnect');
                 this.isConnected = false;
                 this.qrCode = null;
+                this.stopHeartbeat();
                 this.dbManager.updateConnectionStatus('disconnected');
                 this.isManualDisconnect = false; // Reset flag
+                return;
+            }
+            
+            // Handle different disconnect reasons
+            if (disconnectReason === DisconnectReason.badSession) {
+                logWithTimestamp('⚠️ Bad session detected - clearing auth and restarting', 'warn');
+                this.isConnected = false;
+                this.qrCode = null;
+                this.clearAuthSession().then(() => {
+                    setTimeout(() => this.initialize(), 3000);
+                });
+                return;
+            }
+            
+            if (disconnectReason === DisconnectReason.restartRequired) {
+                logWithTimestamp('🔄 Restart required - reinitializing connection', 'warn');
+                this.isConnected = false;
+                this.qrCode = null;
+                setTimeout(() => this.initialize(), 2000);
                 return;
             }
             
@@ -117,8 +149,11 @@ class WhatsAppManager {
                 this.qrCode = null;
                 this.dbManager.updateConnectionStatus('reconnecting');
                 
-                // Add delay for 440 errors to prevent rapid reconnection
-                const delay = disconnectReason === 440 ? 10000 : 3000;
+                // Progressive delay based on disconnect count to prevent rapid reconnection
+                let delay = 3000;
+                if (this.connectionStats.disconnectCount > 5) delay = 10000;
+                else if (this.connectionStats.disconnectCount > 2) delay = 6000;
+                
                 setTimeout(() => {
                     this.connectionStats.reconnectAttempts++;
                     const reconnectStart = Date.now();
@@ -127,22 +162,25 @@ class WhatsAppManager {
                     });
                 }, delay);
             } else {
-                // This is a logout, we should generate new QR automatically
-                logWithTimestamp('🚪 Logged out detected, will generate new QR code');
+                // This is a logout, we should generate new QR automatically only if not connected
+                logWithTimestamp('🚪 Logged out detected');
                 this.isConnected = false;
                 this.qrCode = null;
+                this.stopHeartbeat();
                 this.dbManager.updateConnectionStatus('logged_out');
                 
-                // Auto-restart to generate new QR after logout
-                setTimeout(async () => {
-                    try {
-                        logWithTimestamp('🔄 Auto-generating new QR code after logout...');
-                        await this.clearAuthSession();
-                        await this.initialize();
-                    } catch (error) {
-                        logWithTimestamp(`❌ Error auto-generating QR: ${error.message}`, 'error');
-                    }
-                }, 3000);
+                // Only auto-restart after logout if we were previously connected
+                if (this.connectionStats.connectTime) {
+                    logWithTimestamp('🔄 Auto-generating new QR code after logout...');
+                    setTimeout(async () => {
+                        try {
+                            await this.clearAuthSession();
+                            await this.initialize();
+                        } catch (error) {
+                            logWithTimestamp(`❌ Error auto-generating QR: ${error.message}`, 'error');
+                        }
+                    }, 5000);
+                }
             }
         } else if (connection === 'open') {
             logWithTimestamp('✅ WhatsApp connection established successfully!');
@@ -150,10 +188,45 @@ class WhatsAppManager {
             this.qrCode = null;
             this.connectionStats.connectTime = Date.now();
             this.connectionStats.isStabilizing = false;
+            this.connectionStats.disconnectCount = 0; // Reset disconnect count on successful connection
             this.dbManager.updateConnectionStatus('connected');
+            
+            // Start heartbeat to keep connection alive
+            this.startHeartbeat();
         } else if (connection === 'connecting') {
             logWithTimestamp('🔄 Connecting to WhatsApp...');
             this.dbManager.updateConnectionStatus('connecting');
+        }
+    }
+
+    // Start heartbeat to keep connection alive
+    startHeartbeat() {
+        // Clear existing heartbeat if any
+        if (this.heartbeatInterval) {
+            clearInterval(this.heartbeatInterval);
+        }
+        
+        // Send heartbeat every 30 seconds
+        this.heartbeatInterval = setInterval(() => {
+            if (this.isConnected && this.sock) {
+                try {
+                    // Send a simple presence update to keep connection alive
+                    this.sock.sendPresenceUpdate('available');
+                    this.connectionStats.lastHeartbeat = Date.now();
+                    logWithTimestamp('💓 Heartbeat sent', 'debug');
+                } catch (error) {
+                    logWithTimestamp(`❌ Heartbeat failed: ${error.message}`, 'warn');
+                }
+            }
+        }, 30000); // 30 seconds
+    }
+
+    // Stop heartbeat
+    stopHeartbeat() {
+        if (this.heartbeatInterval) {
+            clearInterval(this.heartbeatInterval);
+            this.heartbeatInterval = null;
+            logWithTimestamp('💔 Heartbeat stopped');
         }
     }
 
@@ -259,7 +332,9 @@ class WhatsAppManager {
 
     async logout() {
         try {
-            logWithTimestamp('� Logging out from WhatsApp...');
+            logWithTimestamp('🚪 Logging out from WhatsApp...');
+            
+            this.stopHeartbeat();
             
             if (this.sock) {
                 await this.sock.logout();
@@ -292,7 +367,9 @@ class WhatsAppManager {
 
     async reconnect() {
         try {
-            logWithTimestamp('� Initiating reconnection...');
+            logWithTimestamp('🔄 Initiating reconnection...');
+            
+            this.stopHeartbeat();
             
             // End current connection if exists
             if (this.sock) {
@@ -324,6 +401,7 @@ class WhatsAppManager {
             
             // Set flag untuk manual disconnect
             this.isManualDisconnect = true;
+            this.stopHeartbeat();
             
             if (this.sock) {
                 await this.sock.end();
@@ -353,6 +431,7 @@ class WhatsAppManager {
             // Reset flags untuk manual reconnect
             this.isManualDisconnect = false;
             this.shouldReconnect = true;
+            this.stopHeartbeat();
             
             // Jika sudah ada koneksi, disconnect dulu
             if (this.sock) {
@@ -388,7 +467,9 @@ class WhatsAppManager {
             connectionUptime: this.connectionStats.connectTime 
                 ? now - this.connectionStats.connectTime 
                 : this.connectionStats.connectionUptime,
-            isStabilizing: this.connectionStats.isStabilizing
+            isStabilizing: this.connectionStats.isStabilizing,
+            lastHeartbeat: this.connectionStats.lastHeartbeat,
+            hasHeartbeat: !!this.heartbeatInterval
         };
     }
 
