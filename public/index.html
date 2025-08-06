@@ -185,37 +185,6 @@
             animation: pulse 2s infinite;
         }
 
-        /* Auto Reply Switch Styling */
-        .form-check-input:checked {
-            background-color: var(--whatsapp-primary);
-            border-color: var(--whatsapp-primary);
-            box-shadow: 0 0 0 0.25rem rgba(37, 211, 102, 0.25);
-        }
-
-        .form-check-input:focus {
-            border-color: var(--whatsapp-primary);
-            box-shadow: 0 0 0 0.25rem rgba(37, 211, 102, 0.25);
-        }
-
-        .auto-reply-status .badge {
-            font-size: 0.8rem;
-            padding: 6px 12px;
-            font-weight: 600;
-            letter-spacing: 0.5px;
-            border-radius: 15px;
-            transition: all 0.3s ease;
-        }
-
-        .auto-reply-status .badge.bg-success {
-            background: linear-gradient(135deg, #28a745, #20c997) !important;
-            box-shadow: 0 2px 4px rgba(40, 167, 69, 0.3);
-        }
-
-        .auto-reply-status .badge.bg-secondary {
-            background: linear-gradient(135deg, #6c757d, #5a6268) !important;
-            box-shadow: 0 2px 4px rgba(108, 117, 125, 0.3);
-        }
-
         /* Modal improvements */
         .modal-content {
             border: none;
@@ -463,22 +432,6 @@
                     <div class="card-body text-center">
                         <div class="d-flex align-items-center justify-content-between">
                             <div>
-                                <h6 class="card-title text-muted mb-1"><i class="fas fa-robot me-2"></i>Auto Reply</h6>
-                                <h4 id="autoReplyStatus" class="text-success mb-0">ON</h4>
-                            </div>
-                            <div class="text-info">
-                                <i class="fas fa-magic fa-2x opacity-75"></i>
-                            </div>
-                        </div>
-                        <small class="text-muted">Automatic responses</small>
-                    </div>
-                </div>
-            </div>
-            <div class="col-lg-3 col-md-6 mb-3">
-                <div class="card stats-card">
-                    <div class="card-body text-center">
-                        <div class="d-flex align-items-center justify-content-between">
-                            <div>
                                 <h6 class="card-title text-muted mb-1"><i class="fas fa-clock me-2"></i>Uptime</h6>
                                 <h4 id="uptime" class="text-warning mb-0">00:00:00</h4>
                             </div>
@@ -611,23 +564,6 @@
             <div class="col-md-3">
                 <div class="card">
                     <div class="card-body text-center">
-                        <h5 class="card-title"><i class="fas fa-robot me-2 text-primary"></i>Auto Reply</h5>
-                        <div class="form-check form-switch d-flex justify-content-center mb-2">
-                            <input class="form-check-input" type="checkbox" id="autoReplyToggle" checked 
-                                   style="font-size: 1.2rem; width: 2.5rem; height: 1.3rem;">
-                        </div>
-                        <div class="auto-reply-status">
-                            <span id="autoReplyStatusText" class="badge bg-success">
-                                <i class="fas fa-check-circle me-1"></i>ENABLED
-                            </span>
-                        </div>
-                        <small class="text-muted mt-1 d-block">Automatic message responses</small>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-3">
-                <div class="card">
-                    <div class="card-body text-center">
                         <h5 class="card-title"><i class="fas fa-qrcode me-2"></i>Connection</h5>
                         <div class="d-grid gap-2">
                             <button id="showQrBtn" class="btn btn-info btn-sm">
@@ -720,34 +656,6 @@
                     </div>
                 </form>
                 <div id="sendResult" class="mt-3"></div>
-            </div>
-        </div>
-
-        <!-- Auto Reply Settings -->
-        <div class="card mb-4">
-            <div class="card-header">
-                <h5 class="mb-0"><i class="fas fa-robot me-2"></i>Auto Reply Settings</h5>
-            </div>
-            <div class="card-body">
-                <form id="autoReplyForm">
-                    <div class="row">
-                        <div class="col-md-8">
-                            <div class="mb-3">
-                                <label for="autoReplyMessage" class="form-label">Auto Reply Message</label>
-                                <textarea class="form-control" id="autoReplyMessage" rows="2" 
-                                          placeholder="Enter auto reply message...">Halo! Pesan Anda telah diterima. Terima kasih! 🙏</textarea>
-                            </div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="mb-3">
-                                <label class="form-label">&nbsp;</label>
-                                <button type="submit" class="btn btn-secondary w-100">
-                                    <i class="fas fa-save me-2"></i>Update Auto Reply
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </form>
             </div>
         </div>
 
@@ -947,17 +855,6 @@
                     this.sendMessage();
                 });
 
-                // Auto reply form
-                document.getElementById('autoReplyForm').addEventListener('submit', (e) => {
-                    e.preventDefault();
-                    this.updateAutoReply();
-                });
-
-                // Auto reply toggle
-                document.getElementById('autoReplyToggle').addEventListener('change', (e) => {
-                    this.toggleAutoReply(e.target.checked);
-                });
-
                 // Refresh buttons
                 document.getElementById('refreshBtn').addEventListener('click', () => {
                     this.refreshAll();
@@ -1092,85 +989,6 @@
                 } finally {
                     sendBtn.disabled = false;
                     sendBtn.innerHTML = '<i class="fas fa-paper-plane me-2"></i>Send';
-                }
-            }
-
-            async updateAutoReply() {
-                const enabled = document.getElementById('autoReplyToggle').checked;
-                const message = document.getElementById('autoReplyMessage').value;
-
-                try {
-                    const response = await fetch(`${this.baseURL}/auto-reply`, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({
-                            enabled: enabled,
-                            message: message
-                        })
-                    });
-
-                    const data = await response.json();
-
-                    if (data.success) {
-                        this.showNotification('🤖 Auto reply settings updated successfully!', 'success');
-                        document.getElementById('autoReplyStatus').textContent = enabled ? 'ON' : 'OFF';
-                        document.getElementById('autoReplyStatus').className = enabled ? 'text-success' : 'text-muted';
-                    } else {
-                        this.showNotification(`⚠️ Error updating auto reply: ${data.error}`, 'error');
-                    }
-                } catch (error) {
-                    console.error('Error updating auto reply:', error);
-                    this.showNotification('🔌 Network error while updating auto reply', 'error');
-                }
-            }
-
-            async toggleAutoReply(enabled) {
-                const message = document.getElementById('autoReplyMessage').value;
-                const autoReplyStatusText = document.getElementById('autoReplyStatusText');
-                
-                try {
-                    const response = await fetch(`${this.baseURL}/auto-reply`, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({
-                            enabled: enabled,
-                            message: message
-                        })
-                    });
-
-                    const data = await response.json();
-
-                    if (data.success) {
-                        // Update visual status immediately
-                        if (autoReplyStatusText) {
-                            if (enabled) {
-                                autoReplyStatusText.innerHTML = '<i class="fas fa-check-circle me-1"></i>ENABLED';
-                                autoReplyStatusText.className = 'badge bg-success';
-                            } else {
-                                autoReplyStatusText.innerHTML = '<i class="fas fa-times-circle me-1"></i>DISABLED';
-                                autoReplyStatusText.className = 'badge bg-secondary';
-                            }
-                        }
-                        
-                        // Update main dashboard status
-                        document.getElementById('autoReplyStatus').textContent = enabled ? 'ON' : 'OFF';
-                        document.getElementById('autoReplyStatus').className = enabled ? 'text-success' : 'text-muted';
-                        
-                        this.showNotification(`🔄 Auto reply ${enabled ? 'enabled' : 'disabled'} successfully`, 'success');
-                    } else {
-                        // Revert toggle if API call failed
-                        document.getElementById('autoReplyToggle').checked = !enabled;
-                        this.showNotification(`❌ Failed to ${enabled ? 'enable' : 'disable'} auto reply: ${data.error}`, 'error');
-                    }
-                } catch (error) {
-                    console.error('Error toggling auto reply:', error);
-                    // Revert toggle if network error
-                    document.getElementById('autoReplyToggle').checked = !enabled;
-                    this.showNotification('🔌 Network error while toggling auto reply', 'error');
                 }
             }
 
@@ -1470,22 +1288,6 @@
                 statusText.className = className;
                 connectionStatus.innerHTML = `<i class="fas fa-circle me-1"></i>${status}`;
                 connectionStatus.className = `badge ${className} status-badge`;
-
-                // Update stats
-                document.getElementById('autoReplyStatus').textContent = waStatus.autoReplyEnabled ? 'ON' : 'OFF';
-                document.getElementById('autoReplyStatus').className = waStatus.autoReplyEnabled ? 'text-success' : 'text-muted';
-                
-                // Update auto reply status badge
-                const autoReplyStatusText = document.getElementById('autoReplyStatusText');
-                if (autoReplyStatusText) {
-                    if (waStatus.autoReplyEnabled) {
-                        autoReplyStatusText.innerHTML = '<i class="fas fa-check-circle me-1"></i>ENABLED';
-                        autoReplyStatusText.className = 'badge bg-success';
-                    } else {
-                        autoReplyStatusText.innerHTML = '<i class="fas fa-times-circle me-1"></i>DISABLED';
-                        autoReplyStatusText.className = 'badge bg-secondary';
-                    }
-                }
 
                 // Enable/disable buttons based on status
                 reconnectBtn.disabled = waStatus.isConnected && !waStatus.hasQR;
@@ -1894,9 +1696,6 @@
                     dashboard.sendMessage();
                 }
             });
-
-            // Auto reply form
-            document.getElementById('saveAutoReplyBtn')?.addEventListener('click', () => dashboard.saveAutoReply());
         }
     </script>
 </body>

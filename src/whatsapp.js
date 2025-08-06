@@ -17,8 +17,6 @@ class WhatsAppManager {
         this.isConnected = false;
         this.dbManager = dbManager;
         this.logger = pino({ level: 'silent' }); // Silent logger untuk mengurangi spam
-        this.autoReplyEnabled = true;
-        this.autoReplyMessage = "Halo! Pesan Anda telah diterima. Terima kasih! 🙏";
         
         // Connection control flags
         this.isManualDisconnect = false; // Flag untuk disconnect manual
@@ -182,38 +180,9 @@ class WhatsAppManager {
                 this.dbManager.saveMessage(messageData);
 
                 logWithTimestamp(`📨 Incoming message from ${formatPhoneNumber(fromJid)}: ${messageContent.content}`);
-
-                // Auto reply jika diaktifkan
-                if (this.autoReplyEnabled && messageContent.type === 'text') {
-                    await this.sendAutoReply(fromJid, message.key.id);
-                }
             }
         } catch (error) {
             logWithTimestamp(`❌ Error handling incoming messages: ${error.message}`, 'error');
-        }
-    }
-
-    async sendAutoReply(toJid, replyToMessageId) {
-        try {
-            await this.sock.sendMessage(toJid, {
-                text: this.autoReplyMessage
-            });
-
-            // Simpan auto reply ke database
-            const messageData = {
-                messageId: Date.now().toString(),
-                from: 'self',
-                to: formatPhoneNumber(toJid),
-                content: this.autoReplyMessage,
-                type: 'text',
-                direction: 'outgoing',
-                status: 'sent'
-            };
-
-            this.dbManager.saveMessage(messageData);
-            logWithTimestamp(`🤖 Auto reply sent to ${formatPhoneNumber(toJid)}`);
-        } catch (error) {
-            logWithTimestamp(`❌ Error sending auto reply: ${error.message}`, 'error');
         }
     }
 
@@ -264,14 +233,6 @@ class WhatsAppManager {
             qrCode: this.qrCode,
             status: this.isConnected ? 'connected' : (this.qrCode ? 'waiting_qr' : 'disconnected')
         };
-    }
-
-    setAutoReply(enabled, message = null) {
-        this.autoReplyEnabled = enabled;
-        if (message) {
-            this.autoReplyMessage = message;
-        }
-        logWithTimestamp(`🤖 Auto reply ${enabled ? 'enabled' : 'disabled'}`);
     }
 
     async clearAuthSession() {

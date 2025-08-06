@@ -145,36 +145,6 @@ class APIServer {
             }
         });
 
-        // Set auto reply
-        this.app.post('/auto-reply', (req, res) => {
-            try {
-                const { enabled, message } = req.body;
-
-                if (typeof enabled !== 'boolean') {
-                    return res.status(400).json({
-                        success: false,
-                        error: 'enabled must be a boolean value'
-                    });
-                }
-
-                this.whatsappManager.setAutoReply(enabled, message);
-
-                res.json({
-                    success: true,
-                    message: `Auto reply ${enabled ? 'enabled' : 'disabled'}`,
-                    timestamp: new Date().toISOString()
-                });
-
-            } catch (error) {
-                logWithTimestamp(`❌ API Error in /auto-reply: ${error.message}`, 'error');
-                res.status(500).json({
-                    success: false,
-                    error: error.message,
-                    timestamp: new Date().toISOString()
-                });
-            }
-        });
-
         // Get QR Code
         this.app.get('/qr', (req, res) => {
             try {

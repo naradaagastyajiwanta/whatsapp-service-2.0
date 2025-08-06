@@ -41,11 +41,9 @@ class WhatsAppService {
             logWithTimestamp('   • Send Message: POST /send');
             logWithTimestamp('   • Get Messages: GET /messages');
             logWithTimestamp('   • WhatsApp Status: GET /status');
-            logWithTimestamp('   • Auto Reply: POST /auto-reply');
             logWithTimestamp('');
             logWithTimestamp('💡 Tips:');
             logWithTimestamp('   • Scan QR code with your WhatsApp mobile app');
-            logWithTimestamp('   • Auto-reply is enabled by default');
             logWithTimestamp('   • All messages are saved to SQLite database');
             logWithTimestamp('');
 
