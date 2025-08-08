@@ -45,6 +45,14 @@ class WhatsAppManager {
             // Migrate existing filesystem auth to database if needed
             await this.migrateAuthToDatabase();
             
+            // Check if we have valid session in database
+            const hasValidSession = this.dbManager.hasAuthSessions();
+            if (hasValidSession) {
+                logWithTimestamp('📱 Found existing session in database, attempting to connect...');
+            } else {
+                logWithTimestamp('🆕 No existing session found, will generate QR code...');
+            }
+            
             // Load authentication state from database instead of filesystem
             const { state, saveCreds } = useDatabaseAuthState(this.dbManager);
             
@@ -58,6 +66,7 @@ class WhatsAppManager {
                 keepAliveIntervalMs: 10000,
                 markOnlineOnConnect: true,
                 syncFullHistory: false,
+                generateHighQualityLinkPreview: false,
                 browser: ["WhatsApp Service", "Chrome", "1.0.0"],
                 getMessage: async (key) => {
                     return {
@@ -85,31 +94,36 @@ class WhatsAppManager {
             
             // If no filesystem auth folder exists, skip migration
             if (!fs.existsSync(authPath)) {
+                logWithTimestamp('📁 No filesystem auth folder found, skipping migration');
                 return;
             }
 
             // If database already has auth sessions, skip migration
             if (this.dbManager.hasAuthSessions()) {
+                logWithTimestamp('📊 Database already has auth sessions, skipping migration');
                 return;
             }
 
             logWithTimestamp('🔄 Migrating filesystem auth to database...');
             
             const files = fs.readdirSync(authPath);
+            logWithTimestamp(`📁 Found ${files.length} auth files to migrate`);
+            
             for (const file of files) {
                 const filePath = path.join(authPath, file);
                 const fileData = fs.readFileSync(filePath);
                 this.dbManager.saveAuthSession(file, fileData);
+                logWithTimestamp(`📄 Migrated: ${file} (${fileData.length} bytes)`);
             }
             
             logWithTimestamp('✅ Auth migration completed successfully');
             
-            // Optionally remove filesystem auth after successful migration
-            // Uncomment if you want to clean up after migration
-            // for (const file of files) {
-            //     const filePath = path.join(authPath, file);
-            //     fs.unlinkSync(filePath);
-            // }
+            // Verify migration
+            if (this.dbManager.hasAuthSessions()) {
+                logWithTimestamp('✅ Migration verified - sessions found in database');
+            } else {
+                logWithTimestamp('❌ Migration verification failed - no sessions in database');
+            }
             
         } catch (error) {
             logWithTimestamp(`❌ Error during auth migration: ${error.message}`, 'error');
@@ -159,6 +173,7 @@ class WhatsAppManager {
                 logWithTimestamp('⚠️ Bad session detected - clearing auth and restarting', 'warn');
                 this.isConnected = false;
                 this.qrCode = null;
+                this.stopHeartbeat();
                 this.clearAuthSession().then(() => {
                     setTimeout(() => this.initialize(), 3000);
                 });
@@ -169,7 +184,20 @@ class WhatsAppManager {
                 logWithTimestamp('🔄 Restart required - reinitializing connection', 'warn');
                 this.isConnected = false;
                 this.qrCode = null;
+                this.stopHeartbeat();
                 setTimeout(() => this.initialize(), 2000);
+                return;
+            }
+
+            // Handle connection lost (maintain session but reconnect)
+            if (disconnectReason === DisconnectReason.connectionLost || 
+                disconnectReason === DisconnectReason.connectionClosed ||
+                disconnectReason === DisconnectReason.timedOut) {
+                logWithTimestamp('🔄 Connection lost - attempting to reconnect with existing session', 'warn');
+                this.isConnected = false;
+                this.qrCode = null;
+                this.stopHeartbeat();
+                setTimeout(() => this.initialize(), 3000);
                 return;
             }
             
@@ -189,6 +217,7 @@ class WhatsAppManager {
                 logWithTimestamp('🔄 Attempting to reconnect...');
                 this.isConnected = false;
                 this.qrCode = null;
+                this.stopHeartbeat();
                 this.dbManager.updateConnectionStatus('reconnecting');
                 
                 // Progressive delay based on disconnect count to prevent rapid reconnection
@@ -205,24 +234,22 @@ class WhatsAppManager {
                 }, delay);
             } else {
                 // This is a logout, we should generate new QR automatically only if not connected
-                logWithTimestamp('🚪 Logged out detected');
+                logWithTimestamp('🚪 Logged out detected - clearing session');
                 this.isConnected = false;
                 this.qrCode = null;
                 this.stopHeartbeat();
                 this.dbManager.updateConnectionStatus('logged_out');
                 
-                // Only auto-restart after logout if we were previously connected
-                if (this.connectionStats.connectTime) {
-                    logWithTimestamp('🔄 Auto-generating new QR code after logout...');
-                    setTimeout(async () => {
-                        try {
-                            await this.clearAuthSession();
-                            await this.initialize();
-                        } catch (error) {
-                            logWithTimestamp(`❌ Error auto-generating QR: ${error.message}`, 'error');
-                        }
-                    }, 5000);
-                }
+                // Clear session and restart for new QR
+                setTimeout(async () => {
+                    try {
+                        logWithTimestamp('🔄 Auto-generating new QR code after logout...');
+                        await this.clearAuthSession();
+                        await this.initialize();
+                    } catch (error) {
+                        logWithTimestamp(`❌ Error auto-generating QR: ${error.message}`, 'error');
+                    }
+                }, 5000);
             }
         } else if (connection === 'open') {
             logWithTimestamp('✅ WhatsApp connection established successfully!');
@@ -248,19 +275,32 @@ class WhatsAppManager {
             clearInterval(this.heartbeatInterval);
         }
         
-        // Send heartbeat every 30 seconds
+        logWithTimestamp('💓 Starting heartbeat mechanism...');
+        
+        // Send heartbeat every 25 seconds (more frequent)
         this.heartbeatInterval = setInterval(() => {
             if (this.isConnected && this.sock) {
                 try {
                     // Send a simple presence update to keep connection alive
                     this.sock.sendPresenceUpdate('available');
                     this.connectionStats.lastHeartbeat = Date.now();
-                    logWithTimestamp('💓 Heartbeat sent', 'debug');
+                    
+                    // Only log heartbeat in debug mode to reduce spam
+                    // logWithTimestamp('💓 Heartbeat sent', 'debug');
                 } catch (error) {
                     logWithTimestamp(`❌ Heartbeat failed: ${error.message}`, 'warn');
+                    
+                    // If heartbeat fails multiple times, try to reconnect
+                    if (this.connectionStats.lastHeartbeat && 
+                        Date.now() - this.connectionStats.lastHeartbeat > 120000) { // 2 minutes
+                        logWithTimestamp('⚠️ Heartbeat failed for too long, attempting reconnect...');
+                        this.reconnect().catch(err => {
+                            logWithTimestamp(`❌ Auto-reconnect failed: ${err.message}`, 'error');
+                        });
+                    }
                 }
             }
-        }, 30000); // 30 seconds
+        }, 25000); // 25 seconds
     }
 
     // Stop heartbeat

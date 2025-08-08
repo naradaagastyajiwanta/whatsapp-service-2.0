@@ -22,6 +22,14 @@ class WhatsAppService {
             // Initialize WhatsApp
             logWithTimestamp('📱 Initializing WhatsApp connection...');
             this.whatsappManager = new WhatsAppManager(this.dbManager);
+            
+            // Check if we have existing session and inform user
+            if (this.dbManager.hasAuthSessions()) {
+                logWithTimestamp('🔄 Found existing session, attempting auto-connect...');
+            } else {
+                logWithTimestamp('🆕 No existing session found, will need QR scan...');
+            }
+            
             await this.whatsappManager.initialize();
 
             // Initialize API server

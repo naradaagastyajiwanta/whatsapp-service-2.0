@@ -9,6 +9,7 @@ function useDatabaseAuthState(dbManager) {
         try {
             const serialized = JSON.stringify(data, BufferJSON.replacer);
             dbManager.saveAuthSession(file, Buffer.from(serialized));
+            console.log(`💾 Auth data saved: ${file}`);
         } catch (error) {
             console.error(`❌ Error writing auth data to database: ${error.message}`);
         }
@@ -19,10 +20,12 @@ function useDatabaseAuthState(dbManager) {
             const data = dbManager.loadAuthSession(file);
             if (data) {
                 const serialized = data.toString();
-                return JSON.parse(serialized, BufferJSON.reviver);
+                const parsed = JSON.parse(serialized, BufferJSON.reviver);
+                console.log(`📖 Auth data loaded: ${file}`);
+                return parsed;
             }
         } catch (error) {
-            console.error(`❌ Error reading auth data from database: ${error.message}`);
+            console.error(`❌ Error reading auth data from database for ${file}: ${error.message}`);
         }
         return null;
     };
@@ -32,13 +35,22 @@ function useDatabaseAuthState(dbManager) {
             // For simplicity, we'll clear all sessions when removing
             // In production, you might want to delete specific files
             dbManager.clearAuthSessions();
+            console.log(`🗑️ Auth data removed: ${file}`);
         } catch (error) {
             console.error(`❌ Error removing auth data from database: ${error.message}`);
         }
     };
 
     // Load existing session data from database
-    const creds = readData('creds.json') || initAuthCreds();
+    let creds = readData('creds.json');
+    
+    // If no creds found in database, initialize new ones
+    if (!creds) {
+        console.log('🆕 No existing credentials found, initializing new ones...');
+        creds = initAuthCreds();
+    } else {
+        console.log('✅ Existing credentials loaded from database');
+    }
     
     return {
         state: {
