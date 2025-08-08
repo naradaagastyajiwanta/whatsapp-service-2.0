@@ -33,8 +33,19 @@ class DatabaseManager {
             )
         `;
 
+        // Tabel untuk menyimpan session auth WhatsApp
+        const createAuthSessionTable = `
+            CREATE TABLE IF NOT EXISTS auth_session (
+                id INTEGER PRIMARY KEY,
+                filename TEXT UNIQUE NOT NULL,
+                data BLOB NOT NULL,
+                last_updated DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+        `;
+
         this.db.exec(createMessagesTable);
         this.db.exec(createConnectionTable);
+        this.db.exec(createAuthSessionTable);
 
         // Insert default connection status
         const checkConnection = this.db.prepare("SELECT COUNT(*) as count FROM connection_status").get();
@@ -107,6 +118,43 @@ class DatabaseManager {
     getConnectionStatus() {
         const stmt = this.db.prepare("SELECT * FROM connection_status WHERE id = 1");
         return stmt.get();
+    }
+
+    // Simpan session auth ke database
+    saveAuthSession(filename, data) {
+        const stmt = this.db.prepare(`
+            INSERT OR REPLACE INTO auth_session (filename, data, last_updated)
+            VALUES (?, ?, CURRENT_TIMESTAMP)
+        `);
+        stmt.run(filename, data);
+        console.log(`💾 Auth session saved: ${filename}`);
+    }
+
+    // Load session auth dari database
+    loadAuthSession(filename) {
+        const stmt = this.db.prepare("SELECT data FROM auth_session WHERE filename = ?");
+        const result = stmt.get(filename);
+        return result ? result.data : null;
+    }
+
+    // Load semua session auth dari database
+    loadAllAuthSessions() {
+        const stmt = this.db.prepare("SELECT filename, data FROM auth_session");
+        return stmt.all();
+    }
+
+    // Hapus session auth dari database
+    clearAuthSessions() {
+        const stmt = this.db.prepare("DELETE FROM auth_session");
+        stmt.run();
+        console.log('🗑️ All auth sessions cleared from database');
+    }
+
+    // Cek apakah ada session auth di database
+    hasAuthSessions() {
+        const stmt = this.db.prepare("SELECT COUNT(*) as count FROM auth_session");
+        const result = stmt.get();
+        return result.count > 0;
     }
 
     // Tutup koneksi database

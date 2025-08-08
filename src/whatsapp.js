@@ -9,6 +9,7 @@ const pino = require('pino');
 const fs = require('fs');
 const path = require('path');
 const { cleanPhoneNumber, extractMessageContent, formatPhoneNumber, logWithTimestamp } = require('./utils');
+const { useDatabaseAuthState } = require('./auth-state');
 
 class WhatsAppManager {
     constructor(dbManager) {
@@ -41,8 +42,11 @@ class WhatsAppManager {
         try {
             logWithTimestamp('🚀 Initializing WhatsApp connection...');
             
-            // Load authentication state
-            const { state, saveCreds } = await useMultiFileAuthState('./auth');
+            // Migrate existing filesystem auth to database if needed
+            await this.migrateAuthToDatabase();
+            
+            // Load authentication state from database instead of filesystem
+            const { state, saveCreds } = useDatabaseAuthState(this.dbManager);
             
             // Create socket connection with improved settings
             this.sock = makeWASocket({
@@ -71,6 +75,44 @@ class WhatsAppManager {
         } catch (error) {
             logWithTimestamp(`❌ Error initializing WhatsApp: ${error.message}`, 'error');
             throw error;
+        }
+    }
+
+    // Migrate existing filesystem auth to database
+    async migrateAuthToDatabase() {
+        try {
+            const authPath = path.join(process.cwd(), 'auth');
+            
+            // If no filesystem auth folder exists, skip migration
+            if (!fs.existsSync(authPath)) {
+                return;
+            }
+
+            // If database already has auth sessions, skip migration
+            if (this.dbManager.hasAuthSessions()) {
+                return;
+            }
+
+            logWithTimestamp('🔄 Migrating filesystem auth to database...');
+            
+            const files = fs.readdirSync(authPath);
+            for (const file of files) {
+                const filePath = path.join(authPath, file);
+                const fileData = fs.readFileSync(filePath);
+                this.dbManager.saveAuthSession(file, fileData);
+            }
+            
+            logWithTimestamp('✅ Auth migration completed successfully');
+            
+            // Optionally remove filesystem auth after successful migration
+            // Uncomment if you want to clean up after migration
+            // for (const file of files) {
+            //     const filePath = path.join(authPath, file);
+            //     fs.unlinkSync(filePath);
+            // }
+            
+        } catch (error) {
+            logWithTimestamp(`❌ Error during auth migration: ${error.message}`, 'error');
         }
     }
 
@@ -314,17 +356,20 @@ class WhatsAppManager {
         try {
             logWithTimestamp('🗑️ Clearing authentication session...');
             
-            const authPath = path.join(process.cwd(), 'auth');
+            // Clear session from database instead of filesystem
+            this.dbManager.clearAuthSessions();
             
+            // Also clear filesystem auth folder if it exists (legacy cleanup)
+            const authPath = path.join(process.cwd(), 'auth');
             if (fs.existsSync(authPath)) {
-                // Remove all auth files
                 const files = fs.readdirSync(authPath);
                 for (const file of files) {
                     const filePath = path.join(authPath, file);
                     fs.unlinkSync(filePath);
                 }
-                logWithTimestamp('✅ Authentication session cleared');
             }
+            
+            logWithTimestamp('✅ Authentication session cleared from database');
         } catch (error) {
             logWithTimestamp(`❌ Error clearing auth session: ${error.message}`, 'error');
         }
@@ -481,7 +526,8 @@ class WhatsAppManager {
         return {
             ...stability,
             currentStatus: connectionStatus,
-            authFilesExist: fs.existsSync('./auth'),
+            authFilesExist: fs.existsSync('./auth'), // Legacy filesystem check
+            authSessionsInDB: this.dbManager.hasAuthSessions(), // New database check
             memoryUsage: process.memoryUsage(),
             uptime: process.uptime(),
             timestamp: new Date().toISOString()
