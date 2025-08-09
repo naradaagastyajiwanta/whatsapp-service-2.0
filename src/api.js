@@ -1,6 +1,8 @@
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const multer = require('multer');
+const mime = require('mime-types');
 const QRCode = require('qrcode');
 const { isValidPhoneNumber, logWithTimestamp } = require('./utils');
 
@@ -10,6 +12,34 @@ class APIServer {
         this.whatsappManager = whatsappManager;
         this.dbManager = dbManager;
         this.port = port;
+        
+        // Configure multer for file uploads
+        this.upload = multer({
+            storage: multer.memoryStorage(),
+            limits: {
+                fileSize: 100 * 1024 * 1024, // 100MB limit
+                fieldSize: 10 * 1024 * 1024   // 10MB for other fields
+            },
+            fileFilter: (req, file, cb) => {
+                // Allow all file types but check size
+                const allowedTypes = [
+                    'image/jpeg', 'image/png', 'image/gif', 'image/webp',
+                    'application/pdf', 'application/msword', 
+                    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                    'application/vnd.ms-excel',
+                    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                    'text/plain', 'text/csv',
+                    'video/mp4', 'video/avi', 'video/mov', 'video/quicktime',
+                    'audio/mpeg', 'audio/wav', 'audio/ogg', 'audio/mp4'
+                ];
+                
+                if (allowedTypes.includes(file.mimetype)) {
+                    cb(null, true);
+                } else {
+                    cb(new Error(`File type ${file.mimetype} not supported`), false);
+                }
+            }
+        });
         
         this.setupMiddleware();
         this.setupRoutes();
@@ -107,6 +137,71 @@ class APIServer {
 
             } catch (error) {
                 logWithTimestamp(`❌ API Error in /send: ${error.message}`, 'error');
+                res.status(500).json({
+                    success: false,
+                    error: error.message,
+                    timestamp: new Date().toISOString()
+                });
+            }
+        });
+
+        // Send file endpoint
+        this.app.post('/send-file', this.upload.single('file'), async (req, res) => {
+            try {
+                const { phoneNumber, caption } = req.body;
+                const file = req.file;
+
+                // Validation
+                if (!phoneNumber) {
+                    return res.status(400).json({
+                        success: false,
+                        error: 'Phone number is required'
+                    });
+                }
+
+                if (!file) {
+                    return res.status(400).json({
+                        success: false,
+                        error: 'File is required'
+                    });
+                }
+
+                if (!isValidPhoneNumber(phoneNumber)) {
+                    return res.status(400).json({
+                        success: false,
+                        error: 'Invalid phone number format'
+                    });
+                }
+
+                // Get file info
+                const fileName = file.originalname;
+                const mimeType = file.mimetype;
+                const fileBuffer = file.buffer;
+
+                logWithTimestamp(`📎 Sending file: ${fileName} (${mimeType}, ${fileBuffer.length} bytes) to ${phoneNumber}`);
+
+                // Send file
+                const result = await this.whatsappManager.sendFile(
+                    phoneNumber, 
+                    fileBuffer, 
+                    fileName, 
+                    mimeType, 
+                    caption || ''
+                );
+                
+                res.json({
+                    success: true,
+                    data: result,
+                    fileInfo: {
+                        fileName: fileName,
+                        mimeType: mimeType,
+                        size: fileBuffer.length
+                    },
+                    timestamp: new Date().toISOString()
+                });
+
+            } catch (error) {
+                logWithTimestamp(`❌ API Error in /send-file: ${error.message}`, 'error');
                 res.status(500).json({
                     success: false,
                     error: error.message,

@@ -383,6 +383,85 @@ class WhatsAppManager {
         }
     }
 
+    async sendFile(phoneNumber, fileBuffer, fileName, mimeType, caption = '') {
+        try {
+            if (!this.isConnected) {
+                throw new Error('WhatsApp is not connected');
+            }
+
+            const jid = cleanPhoneNumber(phoneNumber);
+            
+            // Determine message type based on MIME type
+            let messageContent = {};
+            let messageType = 'document';
+
+            if (mimeType.startsWith('image/')) {
+                messageType = 'image';
+                messageContent = {
+                    image: fileBuffer,
+                    caption: caption,
+                    fileName: fileName
+                };
+            } else if (mimeType.startsWith('video/')) {
+                messageType = 'video';
+                messageContent = {
+                    video: fileBuffer,
+                    caption: caption,
+                    fileName: fileName
+                };
+            } else if (mimeType.startsWith('audio/')) {
+                messageType = 'audio';
+                messageContent = {
+                    audio: fileBuffer,
+                    fileName: fileName
+                };
+            } else {
+                messageType = 'document';
+                messageContent = {
+                    document: fileBuffer,
+                    fileName: fileName,
+                    mimetype: mimeType,
+                    caption: caption
+                };
+            }
+
+            // Send file
+            const sentMessage = await this.sock.sendMessage(jid, messageContent);
+
+            // Save message to database
+            const messageData = {
+                messageId: sentMessage.key.id,
+                from: 'self',
+                to: formatPhoneNumber(jid),
+                content: caption || `File: ${fileName}`,
+                type: messageType,
+                direction: 'outgoing',
+                status: 'sent',
+                fileInfo: {
+                    fileName: fileName,
+                    mimeType: mimeType,
+                    size: fileBuffer.length
+                }
+            };
+
+            this.dbManager.saveMessage(messageData);
+
+            logWithTimestamp(`📎 File sent to ${formatPhoneNumber(jid)}: ${fileName} (${mimeType})`);
+            
+            return {
+                success: true,
+                messageId: sentMessage.key.id,
+                to: formatPhoneNumber(jid),
+                fileName: fileName,
+                fileType: messageType,
+                message: 'File sent successfully'
+            };
+        } catch (error) {
+            logWithTimestamp(`❌ Error sending file: ${error.message}`, 'error');
+            throw error;
+        }
+    }
+
     getConnectionStatus() {
         return {
             isConnected: this.isConnected,

@@ -751,6 +751,63 @@
             </div>
         </div>
 
+        <!-- Send File Card -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="fas fa-paperclip me-2"></i>Send File to WhatsApp</h5>
+            </div>
+            <div class="card-body">
+                <form id="sendFileForm" enctype="multipart/form-data">
+                    <div class="row">
+                        <div class="col-md-3">
+                            <div class="mb-3">
+                                <label for="filePhoneNumber" class="form-label">Phone Number</label>
+                                <input type="text" class="form-control" id="filePhoneNumber" 
+                                       placeholder="08xxxxxxxxxx or +62xxxxxxxxxx" required>
+                                <div class="form-text">Format: 08xxx, +62xxx, atau 62xxx</div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="fileInput" class="form-label">Select File</label>
+                                <input type="file" class="form-control" id="fileInput" 
+                                       accept=".jpg,.jpeg,.png,.gif,.pdf,.doc,.docx,.txt,.csv,.mp4,.mp3,.wav" required>
+                                <div class="form-text">
+                                    <small>Supported: Images, PDF, Documents, Videos, Audio (Max: 100MB)</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="mb-3">
+                                <label for="fileCaption" class="form-label">Caption (Optional)</label>
+                                <textarea class="form-control" id="fileCaption" rows="2" 
+                                          placeholder="Add a caption..."></textarea>
+                            </div>
+                        </div>
+                        <div class="col-md-2">
+                            <div class="mb-3">
+                                <label class="form-label">&nbsp;</label>
+                                <button type="submit" class="btn btn-whatsapp w-100" id="sendFileBtn">
+                                    <i class="fas fa-paperclip me-2"></i>Send File
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-12">
+                            <div id="filePreview" class="mt-2" style="display: none;">
+                                <div class="border rounded p-3 bg-light">
+                                    <h6><i class="fas fa-eye me-2"></i>File Preview:</h6>
+                                    <div id="filePreviewContent"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+                <div id="sendFileResult" class="mt-3"></div>
+            </div>
+        </div>
+
         <!-- Messages History -->
         <div class="card">
             <div class="card-header d-flex justify-content-between align-items-center">
@@ -947,6 +1004,17 @@
                     this.sendMessage();
                 });
 
+                // Send file form
+                document.getElementById('sendFileForm').addEventListener('submit', (e) => {
+                    e.preventDefault();
+                    this.sendFile();
+                });
+
+                // File input change event for preview
+                document.getElementById('fileInput').addEventListener('change', (e) => {
+                    this.previewFile(e.target.files[0]);
+                });
+
                 // Refresh buttons
                 document.getElementById('refreshBtn').addEventListener('click', () => {
                     this.refreshAll();
@@ -1082,6 +1150,123 @@
                     sendBtn.disabled = false;
                     sendBtn.innerHTML = '<i class="fas fa-paper-plane me-2"></i>Send';
                 }
+            }
+
+            async sendFile() {
+                const phoneNumber = document.getElementById('filePhoneNumber').value;
+                const fileInput = document.getElementById('fileInput');
+                const caption = document.getElementById('fileCaption').value;
+                const sendFileBtn = document.getElementById('sendFileBtn');
+
+                if (!phoneNumber || !fileInput.files[0]) {
+                    this.showNotification('📎 Please select a phone number and file before sending', 'warning');
+                    return;
+                }
+
+                const file = fileInput.files[0];
+                
+                // Check file size (100MB limit)
+                if (file.size > 100 * 1024 * 1024) {
+                    this.showNotification('📎 File size too large. Maximum 100MB allowed', 'error');
+                    return;
+                }
+
+                sendFileBtn.disabled = true;
+                sendFileBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Sending...';
+
+                try {
+                    const formData = new FormData();
+                    formData.append('phoneNumber', phoneNumber);
+                    formData.append('file', file);
+                    if (caption) {
+                        formData.append('caption', caption);
+                    }
+
+                    const response = await fetch(`${this.baseURL}/send-file`, {
+                        method: 'POST',
+                        body: formData
+                    });
+
+                    const data = await response.json();
+
+                    if (data.success) {
+                        this.showResult('sendFileResult', 
+                            `File "${data.fileInfo.fileName}" sent successfully! (${data.data.fileType})`, 
+                            'success');
+                        
+                        // Clear form
+                        document.getElementById('filePhoneNumber').value = '';
+                        document.getElementById('fileInput').value = '';
+                        document.getElementById('fileCaption').value = '';
+                        document.getElementById('filePreview').style.display = 'none';
+                        
+                        this.loadMessages(); // Refresh messages
+                        this.showNotification(`📎 File "${data.fileInfo.fileName}" sent successfully!`, 'success');
+                    } else {
+                        this.showResult('sendFileResult', `Error: ${data.error}`, 'error');
+                        this.showNotification(`❌ Error sending file: ${data.error}`, 'error');
+                    }
+                } catch (error) {
+                    console.error('Error sending file:', error);
+                    this.showResult('sendFileResult', 'Network error occurred', 'error');
+                    this.showNotification('🔌 Network error occurred while sending file', 'error');
+                } finally {
+                    sendFileBtn.disabled = false;
+                    sendFileBtn.innerHTML = '<i class="fas fa-paperclip me-2"></i>Send File';
+                }
+            }
+
+            previewFile(file) {
+                const preview = document.getElementById('filePreview');
+                const previewContent = document.getElementById('filePreviewContent');
+
+                if (!file) {
+                    preview.style.display = 'none';
+                    return;
+                }
+
+                const fileSize = this.formatFileSize(file.size);
+                const fileName = file.name;
+                const fileType = file.type;
+
+                let previewHTML = `
+                    <div class="d-flex align-items-center mb-2">
+                        <i class="fas fa-file me-2"></i>
+                        <strong>${fileName}</strong>
+                        <span class="ms-2 text-muted">(${fileSize})</span>
+                    </div>
+                `;
+
+                if (fileType.startsWith('image/')) {
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        previewHTML += `<img src="${e.target.result}" class="img-thumbnail" style="max-width: 200px; max-height: 200px;">`;
+                        previewContent.innerHTML = previewHTML;
+                    };
+                    reader.readAsDataURL(file);
+                } else if (fileType.startsWith('video/')) {
+                    previewHTML += `<i class="fas fa-video fa-3x text-primary"></i>`;
+                    previewContent.innerHTML = previewHTML;
+                } else if (fileType.startsWith('audio/')) {
+                    previewHTML += `<i class="fas fa-music fa-3x text-success"></i>`;
+                    previewContent.innerHTML = previewHTML;
+                } else if (fileType === 'application/pdf') {
+                    previewHTML += `<i class="fas fa-file-pdf fa-3x text-danger"></i>`;
+                    previewContent.innerHTML = previewHTML;
+                } else {
+                    previewHTML += `<i class="fas fa-file-alt fa-3x text-secondary"></i>`;
+                    previewContent.innerHTML = previewHTML;
+                }
+
+                preview.style.display = 'block';
+            }
+
+            formatFileSize(bytes) {
+                if (bytes === 0) return '0 Bytes';
+                const k = 1024;
+                const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+                const i = Math.floor(Math.log(bytes) / Math.log(k));
+                return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
             }
 
             async showQrCode() {
