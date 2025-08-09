@@ -60,3 +60,27 @@ ehthumbs.db
 # Temporary files
 *.tmp
 *.temp
+
+# Test files and uploads
+test_files/
+temp_uploads/
+uploads/
+
+# QR Code images (if saved as files)
+qr-code.png
+qr_*.png
+
+# Backup files
+*.bak
+*.backup
+*.old
+
+# IDE files
+.idea/
+*.swp
+*.swo
+*~
+
+# Session and auth backup
+.auth-info*/
+session/

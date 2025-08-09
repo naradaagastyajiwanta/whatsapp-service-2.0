@@ -480,9 +480,32 @@
                                 <i class="fas fa-envelope me-2 text-info"></i>Get Messages
                             </a></li>
                             <li><hr class="dropdown-divider"></li>
+                            <li><h6 class="dropdown-header"><i class="fas fa-paperclip me-1"></i>File Upload</h6></li>
+                            <li><a class="dropdown-item" href="#" onclick="showApiExample('POST', '/send-file')">
+                                <i class="fas fa-upload me-2 text-primary"></i>Send File
+                            </a></li>
+                            <li><hr class="dropdown-divider"></li>
                             <li><h6 class="dropdown-header"><i class="fas fa-tools me-1"></i>Utilities</h6></li>
                             <li><a class="dropdown-item" href="#" onclick="showApiExample('GET', '/health')">
                                 <i class="fas fa-heartbeat me-2 text-success"></i>Health Check
+                            </a></li>
+                        </ul>
+                    </li>
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="toolsDropdown" role="button" data-bs-toggle="dropdown">
+                            <i class="fas fa-tools me-1"></i>Testing Tools
+                        </a>
+                        <ul class="dropdown-menu">
+                            <li><h6 class="dropdown-header"><i class="fas fa-vial me-1"></i>Test Tools</h6></li>
+                            <li><a class="dropdown-item" href="test-file-upload.html" target="_blank">
+                                <i class="fas fa-upload me-2 text-primary"></i>File Upload Test
+                            </a></li>
+                            <li><a class="dropdown-item" href="#" onclick="downloadTestScript()">
+                                <i class="fas fa-download me-2 text-success"></i>Download Python Test Script
+                            </a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="#" onclick="openDocumentation()">
+                                <i class="fas fa-book me-2 text-info"></i>View Full Documentation
                             </a></li>
                         </ul>
                     </li>
@@ -541,6 +564,22 @@
                     <div class="card-body text-center">
                         <div class="d-flex align-items-center justify-content-between">
                             <div>
+                                <h6 class="card-title text-muted mb-1"><i class="fas fa-paperclip me-2"></i>Files</h6>
+                                <h4 id="totalFiles" class="text-primary mb-0">0</h4>
+                            </div>
+                            <div class="text-primary">
+                                <i class="fas fa-file-upload fa-2x opacity-75"></i>
+                            </div>
+                        </div>
+                        <small class="text-muted">Files uploaded</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-3 col-md-6 mb-3">
+                <div class="card stats-card">
+                    <div class="card-body text-center">
+                        <div class="d-flex align-items-center justify-content-between">
+                            <div>
                                 <h6 class="card-title text-muted mb-1"><i class="fas fa-clock me-2"></i>Uptime</h6>
                                 <h4 id="uptime" class="text-warning mb-0">00:00:00</h4>
                             </div>
@@ -590,6 +629,55 @@
                                 <i class="fas fa-info-circle me-1"></i>
                                 Use these controls to manage your WhatsApp connection
                             </small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- File Upload Feature Highlight -->
+        <div class="row mb-4 animate__animated animate__fadeInUp" style="animation-delay: 0.3s;">
+            <div class="col-12">
+                <div class="card border-primary">
+                    <div class="card-header bg-primary text-white d-flex align-items-center">
+                        <i class="fas fa-paperclip me-2"></i>
+                        <span>File Upload Feature</span>
+                        <span class="badge bg-light text-primary ms-2">NEW</span>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-8">
+                                <h6 class="text-primary"><i class="fas fa-upload me-2"></i>Send Files via WhatsApp</h6>
+                                <p class="text-muted mb-3">Upload and send various file types including images, documents, videos, and audio files directly through the API.</p>
+                                
+                                <div class="row">
+                                    <div class="col-sm-6">
+                                        <h6 class="text-muted mb-2">Supported Types:</h6>
+                                        <ul class="list-unstyled small">
+                                            <li><i class="fas fa-image text-primary me-2"></i>Images: JPEG, PNG, GIF, WebP</li>
+                                            <li><i class="fas fa-file-pdf text-danger me-2"></i>Documents: PDF, DOC, DOCX, TXT</li>
+                                        </ul>
+                                    </div>
+                                    <div class="col-sm-6">
+                                        <h6 class="text-muted mb-2">Features:</h6>
+                                        <ul class="list-unstyled small">
+                                            <li><i class="fas fa-check text-success me-2"></i>100MB file limit</li>
+                                            <li><i class="fas fa-check text-success me-2"></i>File type validation</li>
+                                            <li><i class="fas fa-check text-success me-2"></i>Optional captions</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4 text-center">
+                                <div class="d-grid gap-2">
+                                    <button class="btn btn-primary" onclick="window.open('test-file-upload.html', '_blank')">
+                                        <i class="fas fa-vial me-2"></i>Test File Upload
+                                    </button>
+                                    <button class="btn btn-outline-primary" onclick="showApiExample('POST', '/send-file')">
+                                        <i class="fas fa-code me-2"></i>View API Docs
+                                    </button>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -769,11 +857,18 @@
                         </div>
                         <div class="col-md-4">
                             <div class="mb-3">
-                                <label for="fileInput" class="form-label">Select File</label>
+                                <label for="fileInput" class="form-label">
+                                    Select File 
+                                    <i class="fas fa-info-circle text-muted" data-bs-toggle="tooltip" 
+                                       title="Supports images, documents, videos, and audio files up to 100MB"></i>
+                                </label>
                                 <input type="file" class="form-control" id="fileInput" 
-                                       accept=".jpg,.jpeg,.png,.gif,.pdf,.doc,.docx,.txt,.csv,.mp4,.mp3,.wav" required>
+                                       accept=".jpg,.jpeg,.png,.gif,.webp,.pdf,.doc,.docx,.txt,.csv,.mp4,.avi,.mov,.mp3,.wav,.ogg" required>
                                 <div class="form-text">
-                                    <small>Supported: Images, PDF, Documents, Videos, Audio (Max: 100MB)</small>
+                                    <small>
+                                        <i class="fas fa-check-circle text-success me-1"></i>
+                                        Images, PDF, Documents, Videos, Audio (Max: 100MB)
+                                    </small>
                                 </div>
                             </div>
                         </div>
@@ -1099,6 +1194,12 @@
                         this.updateMessagesTable(data.data);
                         document.getElementById('totalMessages').textContent = data.count;
                         document.getElementById('messagesCount').textContent = `Showing ${data.count} messages`;
+                        
+                        // Count file messages for stats
+                        const fileMessages = data.data.filter(msg => 
+                            msg.message_type && ['image', 'document', 'video', 'audio'].includes(msg.message_type)
+                        );
+                        document.getElementById('totalFiles').textContent = fileMessages.length;
                     }
                 } catch (error) {
                     console.error('Error loading messages:', error);
@@ -1952,6 +2053,103 @@
                     testData = { method, endpoint };
                     break;
                     
+                case '/send-file':
+                    exampleContent = `
+                        <h4><span class="badge bg-primary">${method}</span> ${endpoint}</h4>
+                        <p class="text-muted">Upload and send files (images, documents, videos, audio) via WhatsApp</p>
+                        
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>
+                            <strong>Content-Type:</strong> This endpoint requires <code>multipart/form-data</code> encoding.
+                        </div>
+                        
+                        <h6>Request (cURL):</h6>
+                        <pre class="bg-dark text-light p-3 rounded"><code>curl -X ${method} "${window.location.origin}${endpoint}" \\
+  -F "phoneNumber=081234567890" \\
+  -F "file=@document.pdf" \\
+  -F "caption=Here is your document"</code></pre>
+                        
+                        <h6>Request (JavaScript FormData):</h6>
+                        <pre class="bg-dark text-light p-3 rounded"><code>const formData = new FormData();
+formData.append('phoneNumber', '081234567890');
+formData.append('file', fileInput.files[0]);
+formData.append('caption', 'Optional caption');
+
+const response = await fetch('${window.location.origin}${endpoint}', {
+    method: 'POST',
+    body: formData
+});</code></pre>
+                        
+                        <h6>Form Fields:</h6>
+                        <table class="table table-sm">
+                            <thead><tr><th>Field</th><th>Type</th><th>Required</th><th>Description</th></tr></thead>
+                            <tbody>
+                                <tr><td><code>phoneNumber</code></td><td>string</td><td>✅</td><td>Phone number (081234567890, +62812345, etc.)</td></tr>
+                                <tr><td><code>file</code></td><td>file</td><td>✅</td><td>File to upload (max 100MB)</td></tr>
+                                <tr><td><code>caption</code></td><td>string</td><td>❌</td><td>Optional caption/message for the file</td></tr>
+                            </tbody>
+                        </table>
+                        
+                        <h6>Supported File Types:</h6>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <ul class="list-unstyled">
+                                    <li><i class="fas fa-image text-primary me-2"></i><strong>Images:</strong> JPEG, PNG, GIF, WebP</li>
+                                    <li><i class="fas fa-file-pdf text-danger me-2"></i><strong>Documents:</strong> PDF, DOC, DOCX, TXT, CSV</li>
+                                </ul>
+                            </div>
+                            <div class="col-md-6">
+                                <ul class="list-unstyled">
+                                    <li><i class="fas fa-video text-info me-2"></i><strong>Videos:</strong> MP4, AVI, MOV, 3GP</li>
+                                    <li><i class="fas fa-music text-success me-2"></i><strong>Audio:</strong> MP3, WAV, OGG, M4A</li>
+                                </ul>
+                            </div>
+                        </div>
+                        
+                        <div class="alert alert-warning">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            <strong>Requirements:</strong> WhatsApp must be connected and file size must be under 100MB.
+                        </div>
+                        
+                        <h6>Response Example (Success):</h6>
+                        <pre class="bg-dark text-light p-3 rounded"><code>{
+  "success": true,
+  "data": {
+    "messageId": "3EB0C67C04D2C3A0B20D",
+    "to": "+62812345678",
+    "fileType": "image",
+    "fileName": "document.pdf"
+  },
+  "fileInfo": {
+    "fileName": "document.pdf",
+    "mimeType": "application/pdf",
+    "size": 102400
+  },
+  "timestamp": "2025-08-06T10:30:00.000Z"
+}</code></pre>
+                        
+                        <h6>Response Example (Error):</h6>
+                        <pre class="bg-dark text-light p-3 rounded"><code>{
+  "success": false,
+  "error": "File size too large. Maximum 100MB allowed",
+  "timestamp": "2025-08-06T10:30:00.000Z"
+}</code></pre>
+                        
+                        <h6>Error Codes:</h6>
+                        <table class="table table-sm">
+                            <thead><tr><th>Error</th><th>Description</th></tr></thead>
+                            <tbody>
+                                <tr><td>File size too large</td><td>File exceeds 100MB limit</td></tr>
+                                <tr><td>No file uploaded</td><td>File field is missing or empty</td></tr>
+                                <tr><td>Invalid phone number</td><td>Phone number format is invalid</td></tr>
+                                <tr><td>WhatsApp not connected</td><td>WhatsApp connection required</td></tr>
+                                <tr><td>Unsupported file type</td><td>File type not supported</td></tr>
+                            </tbody>
+                        </table>
+                    `;
+                    testData = null; // File upload testing needs special handling
+                    break;
+                    
                 default:
                     exampleContent = '<p class="text-muted">API documentation not available for this endpoint.</p>';
             }
@@ -1964,6 +2162,16 @@
                 testApiBtn.onclick = () => testApiEndpoint(testData);
                 copyApiBtn.disabled = false;
                 copyApiBtn.onclick = () => copyApiExample(method, endpoint, testData.body);
+            } else if (endpoint === '/send-file') {
+                // Special handling for file upload endpoint
+                testApiBtn.disabled = false;
+                testApiBtn.innerHTML = '<i class="fas fa-external-link-alt me-2"></i>Open File Upload Test';
+                testApiBtn.onclick = () => {
+                    window.open('test-file-upload.html', '_blank');
+                    showNotification('📎 File upload test page opened in new tab', 'info');
+                };
+                copyApiBtn.disabled = false;
+                copyApiBtn.onclick = () => copyFileUploadExample();
             } else {
                 testApiBtn.disabled = true;
                 copyApiBtn.disabled = true;
@@ -2029,12 +2237,107 @@
             });
         }
 
+        function copyFileUploadExample() {
+            const curlExample = `# File Upload Example - cURL
+curl -X POST "${window.location.origin}/send-file" \\
+  -F "phoneNumber=081234567890" \\
+  -F "file=@document.pdf" \\
+  -F "caption=Your document is ready"
+
+# JavaScript Example
+const formData = new FormData();
+formData.append('phoneNumber', '081234567890');
+formData.append('file', fileInput.files[0]);
+formData.append('caption', 'Optional caption');
+
+const response = await fetch('/send-file', {
+    method: 'POST',
+    body: formData
+});
+const result = await response.json();
+
+# Python Example
+import requests
+
+files = {'file': open('document.pdf', 'rb')}
+data = {
+    'phoneNumber': '081234567890',
+    'caption': 'Your document'
+}
+
+response = requests.post('${window.location.origin}/send-file', 
+                        files=files, data=data)`;
+            
+            navigator.clipboard.writeText(curlExample).then(() => {
+                showNotification('📎 File upload examples copied to clipboard!', 'success');
+            }).catch(() => {
+                showNotification('❌ Failed to copy to clipboard', 'error');
+            });
+        }
+
+        function downloadTestScript() {
+            const scriptContent = `#!/usr/bin/env python3
+"""
+WhatsApp File Upload API Test Script
+Download and run: python test_api.py
+"""
+
+import requests
+import os
+import json
+
+API_BASE_URL = "${window.location.origin}"
+PHONE_NUMBER = "628123456789"  # Change this
+
+def test_file_upload():
+    # Test file upload
+    files = {'file': ('test.txt', 'Hello from API test!', 'text/plain')}
+    data = {'phoneNumber': PHONE_NUMBER, 'caption': 'Test file'}
+    
+    response = requests.post(f"{API_BASE_URL}/send-file", files=files, data=data)
+    print(f"Status: {response.status_code}")
+    print(f"Response: {response.json()}")
+
+if __name__ == "__main__":
+    test_file_upload()`;
+            
+            const blob = new Blob([scriptContent], { type: 'text/plain' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'test_api.py';
+            a.click();
+            window.URL.revokeObjectURL(url);
+            
+            showNotification('📥 Test script downloaded! Run: python test_api.py', 'success');
+        }
+
+        function openDocumentation() {
+            const docUrls = [
+                'FILE_UPLOAD_DOCUMENTATION.md',
+                'API_DOCUMENTATION.md',
+                'README.md'
+            ];
+            
+            docUrls.forEach(doc => {
+                window.open(doc, '_blank');
+            });
+            
+            showNotification('📚 Documentation opened in new tabs', 'info');
+        }
+
         // Initialize dashboard when page loads
         document.addEventListener('DOMContentLoaded', () => {
             const dashboard = new WhatsAppDashboard();
             
             // Setup all event listeners
             setupEventListeners(dashboard);
+            
+            // Initialize Bootstrap tooltips
+            const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+            tooltipTriggerList.map(function (tooltipTriggerEl) {
+                return new bootstrap.Tooltip(tooltipTriggerEl);
+            });
         });
 
         function setupEventListeners(dashboard) {
