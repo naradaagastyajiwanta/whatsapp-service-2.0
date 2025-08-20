@@ -4,8 +4,26 @@ const path = require('path');
 class DatabaseManager {
     constructor() {
         const dbPath = path.join(__dirname, '..', 'whatsapp.db');
-        this.db = new Database(dbPath);
+        
+        // Heroku-optimized database configuration
+        const options = {
+            verbose: process.env.NODE_ENV === 'development' ? console.log : null,
+            fileMustExist: false,
+            timeout: 10000,
+            readonly: false
+        };
+        
+        this.db = new Database(dbPath, options);
+        
+        // Enable WAL mode for better concurrency
+        this.db.pragma('journal_mode = WAL');
+        this.db.pragma('synchronous = NORMAL');
+        this.db.pragma('cache_size = 1000');
+        this.db.pragma('temp_store = MEMORY');
+        this.db.pragma('mmap_size = 268435456'); // 256MB
+        
         this.initTables();
+        this.setupMaintenance();
     }
 
     initTables() {
@@ -43,9 +61,23 @@ class DatabaseManager {
             )
         `;
 
+        // Tabel untuk metadata dan maintenance tracking
+        const createMetadataTable = `
+            CREATE TABLE IF NOT EXISTS metadata (
+                key TEXT PRIMARY KEY,
+                value TEXT NOT NULL,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+        `;
+
         this.db.exec(createMessagesTable);
         this.db.exec(createConnectionTable);
         this.db.exec(createAuthSessionTable);
+        this.db.exec(createMetadataTable);
+
+        // Create indexes for better performance
+        this.db.exec('CREATE INDEX IF NOT EXISTS idx_messages_timestamp ON messages(timestamp)');
+        this.db.exec('CREATE INDEX IF NOT EXISTS idx_auth_session_updated ON auth_session(last_updated)');
 
         // Insert default connection status
         const checkConnection = this.db.prepare("SELECT COUNT(*) as count FROM connection_status").get();
@@ -148,6 +180,74 @@ class DatabaseManager {
         const stmt = this.db.prepare("DELETE FROM auth_session");
         stmt.run();
         console.log('🗑️ All auth sessions cleared from database');
+    }
+
+    // Cleanup old sessions (Heroku optimization)
+    cleanupOldSessions(hoursOld = 24) {
+        const stmt = this.db.prepare(`
+            DELETE FROM auth_session 
+            WHERE datetime(last_updated) < datetime('now', '-${hoursOld} hours')
+            AND filename NOT IN ('creds.json')
+        `);
+        const result = stmt.run();
+        return result.changes;
+    }
+
+    // Database maintenance for Heroku
+    setupMaintenance() {
+        if (process.env.DYNO) {
+            // Run maintenance every 5 minutes on Heroku
+            setInterval(() => {
+                this.performMaintenance();
+            }, 300000);
+        }
+    }
+
+    performMaintenance() {
+        try {
+            // WAL checkpoint
+            this.db.pragma('wal_checkpoint(PASSIVE)');
+            
+            // Cleanup old sessions
+            const cleaned = this.cleanupOldSessions(6); // 6 hours
+            if (cleaned > 0) {
+                console.log(`🧹 Database maintenance: cleaned ${cleaned} old sessions`);
+            }
+            
+            // Vacuum if needed (once per day)
+            const now = Date.now();
+            const lastVacuum = this.getMetadata('last_vacuum') || 0;
+            if (now - lastVacuum > 86400000) { // 24 hours
+                this.db.exec('VACUUM');
+                this.setMetadata('last_vacuum', now);
+                console.log('🧹 Database vacuumed');
+            }
+        } catch (error) {
+            console.error('❌ Database maintenance error:', error.message);
+        }
+    }
+
+    // Metadata storage for maintenance tracking
+    getMetadata(key) {
+        try {
+            const stmt = this.db.prepare("SELECT value FROM metadata WHERE key = ?");
+            const result = stmt.get(key);
+            return result ? JSON.parse(result.value) : null;
+        } catch {
+            return null;
+        }
+    }
+
+    setMetadata(key, value) {
+        try {
+            const stmt = this.db.prepare(`
+                INSERT OR REPLACE INTO metadata (key, value, updated_at)
+                VALUES (?, ?, CURRENT_TIMESTAMP)
+            `);
+            stmt.run(key, JSON.stringify(value));
+        } catch (error) {
+            console.error('❌ Metadata save error:', error.message);
+        }
     }
 
     // Cek apakah ada session auth di database

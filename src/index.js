@@ -1,6 +1,7 @@
 const DatabaseManager = require('./db');
 const WhatsAppManager = require('./whatsapp');
 const APIServer = require('./api');
+const HerokuStabilityManager = require('./heroku-stability');
 const { logWithTimestamp } = require('./utils');
 
 class WhatsAppService {
@@ -8,6 +9,7 @@ class WhatsAppService {
         this.dbManager = null;
         this.whatsappManager = null;
         this.apiServer = null;
+        this.stabilityManager = null;
         this.isShuttingDown = false;
     }
 
@@ -36,6 +38,10 @@ class WhatsAppService {
             logWithTimestamp('🌐 Starting API server...');
             this.apiServer = new APIServer(this.whatsappManager, this.dbManager, process.env.PORT || 3000);
             this.apiServer.start();
+
+            // Initialize Heroku stability manager
+            this.stabilityManager = new HerokuStabilityManager(this.whatsappManager, this.dbManager);
+            this.stabilityManager.start();
 
             // Setup graceful shutdown
             this.setupGracefulShutdown();
@@ -91,6 +97,11 @@ class WhatsAppService {
     async shutdown() {
         try {
             logWithTimestamp('🔄 Shutting down services...');
+
+            // Stop stability manager
+            if (this.stabilityManager) {
+                this.stabilityManager.stop();
+            }
 
             // Stop API server
             if (this.apiServer) {

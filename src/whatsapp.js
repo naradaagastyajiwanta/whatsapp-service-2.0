@@ -56,17 +56,19 @@ class WhatsAppManager {
             // Load authentication state from database instead of filesystem
             const { state, saveCreds } = useDatabaseAuthState(this.dbManager);
             
-            // Create socket connection with improved settings
+            // Create socket connection with Heroku-optimized settings
             this.sock = makeWASocket({
                 auth: state,
                 logger: this.logger,
                 printQRInTerminal: false, // We'll handle QR ourselves
-                defaultQueryTimeoutMs: 60000,
-                connectTimeoutMs: 60000,
-                keepAliveIntervalMs: 10000,
+                defaultQueryTimeoutMs: process.env.DYNO ? 30000 : 60000, // Shorter timeout on Heroku
+                connectTimeoutMs: process.env.DYNO ? 30000 : 60000,
+                keepAliveIntervalMs: process.env.DYNO ? 15000 : 10000, // More frequent keepalive on Heroku
                 markOnlineOnConnect: true,
                 syncFullHistory: false,
                 generateHighQualityLinkPreview: false,
+                retryRequestDelayMs: 1000,
+                maxMsgRetryCount: 3,
                 browser: ["WhatsApp Service", "Chrome", "1.0.0"],
                 getMessage: async (key) => {
                     return {
@@ -696,14 +698,39 @@ class WhatsAppManager {
                     logWithTimestamp('✅ Force stabilization completed');
                 } catch (error) {
                     logWithTimestamp(`❌ Error during force stabilization: ${error.message}`, 'error');
-                    this.connectionStats.isStabilizing = false;
                 }
+                this.connectionStats.isStabilizing = false;
             }, 15000);
             
         } catch (error) {
             logWithTimestamp(`❌ Error in force stabilization: ${error.message}`, 'error');
             this.connectionStats.isStabilizing = false;
             throw error;
+        }
+    }
+
+    // Force save current session (for Heroku restarts)
+    async forceSaveSession() {
+        try {
+            if (!this.sock || !this.isConnected) {
+                logWithTimestamp('⚠️ No active session to save');
+                return false;
+            }
+
+            logWithTimestamp('💾 Force saving current WhatsApp session...');
+            
+            // Force trigger creds update
+            if (this.sock.authState && this.sock.authState.creds) {
+                const { saveCreds } = useDatabaseAuthState(this.dbManager);
+                await saveCreds();
+                logWithTimestamp('✅ Session force saved successfully');
+                return true;
+            }
+            
+            return false;
+        } catch (error) {
+            logWithTimestamp(`❌ Error force saving session: ${error.message}`, 'error');
+            return false;
         }
     }
 }
