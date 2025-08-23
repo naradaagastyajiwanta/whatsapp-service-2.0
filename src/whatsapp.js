@@ -34,8 +34,12 @@ class WhatsAppManager {
             totalReconnectTime: 0,
             connectionUptime: 0,
             isStabilizing: false,
-            lastHeartbeat: null
+            lastHeartbeat: null,
+            error440Count: 0 // Track specific 440 errors
         };
+        
+        // ADDED: More aggressive session force save mechanism
+        this.sessionSaveInterval = null;
     }
 
     async initialize() {
@@ -165,6 +169,7 @@ class WhatsAppManager {
                 this.isConnected = false;
                 this.qrCode = null;
                 this.stopHeartbeat();
+                this.stopSessionSaver();
                 this.dbManager.updateConnectionStatus('disconnected');
                 this.isManualDisconnect = false; // Reset flag
                 return;
@@ -176,6 +181,7 @@ class WhatsAppManager {
                 this.isConnected = false;
                 this.qrCode = null;
                 this.stopHeartbeat();
+                this.stopSessionSaver();
                 this.clearAuthSession().then(() => {
                     setTimeout(() => this.initialize(), 3000);
                 });
@@ -187,6 +193,7 @@ class WhatsAppManager {
                 this.isConnected = false;
                 this.qrCode = null;
                 this.stopHeartbeat();
+                this.stopSessionSaver();
                 setTimeout(() => this.initialize(), 2000);
                 return;
             }
@@ -199,20 +206,37 @@ class WhatsAppManager {
                 this.isConnected = false;
                 this.qrCode = null;
                 this.stopHeartbeat();
+                this.stopSessionSaver();
                 setTimeout(() => this.initialize(), 3000);
                 return;
             }
             
-            // Check for problematic disconnect reason 440
+            // IMPROVED: Better handling for problematic disconnect reason 440
             if (disconnectReason === 440) {
                 logWithTimestamp('⚠️ Reason 440 detected - Session conflict or auth issue', 'warn');
                 
-                // If too many 440 errors, force stabilize
-                if (this.connectionStats.disconnectCount > 3 && !this.connectionStats.isStabilizing) {
-                    logWithTimestamp('🔧 Auto-stabilizing connection due to repeated 440 errors...');
-                    setTimeout(() => this.forceStabilize(), 5000);
+                // Track 440 errors specifically
+                this.connectionStats.error440Count = (this.connectionStats.error440Count || 0) + 1;
+                
+                // Progressive delay for 440 errors (exponential backoff)
+                let delayMs = Math.min(30000 * Math.pow(2, this.connectionStats.error440Count - 1), 300000); // Max 5 minutes
+                
+                if (this.connectionStats.error440Count >= 3 && !this.connectionStats.isStabilizing) {
+                    logWithTimestamp(`🔧 Auto-stabilizing connection due to repeated 440 errors (count: ${this.connectionStats.error440Count})...`);
+                    setTimeout(() => this.forceStabilize(), delayMs);
+                    return;
+                } else if (this.connectionStats.error440Count < 3) {
+                    logWithTimestamp(`⏳ Waiting ${delayMs/1000}s before reconnecting due to 440 error...`);
+                    this.isConnected = false;
+                    this.qrCode = null;
+                    this.stopHeartbeat();
+                    this.stopSessionSaver();
+                    setTimeout(() => this.initialize(), delayMs);
                     return;
                 }
+            } else {
+                // Reset 440 error count on different disconnect reasons
+                this.connectionStats.error440Count = 0;
             }
             
             if (shouldReconnect && this.shouldReconnect) {
@@ -220,6 +244,7 @@ class WhatsAppManager {
                 this.isConnected = false;
                 this.qrCode = null;
                 this.stopHeartbeat();
+                this.stopSessionSaver();
                 this.dbManager.updateConnectionStatus('reconnecting');
                 
                 // Progressive delay based on disconnect count to prevent rapid reconnection
@@ -240,6 +265,7 @@ class WhatsAppManager {
                 this.isConnected = false;
                 this.qrCode = null;
                 this.stopHeartbeat();
+                this.stopSessionSaver();
                 this.dbManager.updateConnectionStatus('logged_out');
                 
                 // Clear session and restart for new QR
@@ -260,10 +286,14 @@ class WhatsAppManager {
             this.connectionStats.connectTime = Date.now();
             this.connectionStats.isStabilizing = false;
             this.connectionStats.disconnectCount = 0; // Reset disconnect count on successful connection
+            this.connectionStats.error440Count = 0; // Reset 440 error count on successful connection
             this.dbManager.updateConnectionStatus('connected');
             
             // Start heartbeat to keep connection alive
             this.startHeartbeat();
+            
+            // ADDED: Start aggressive session saving
+            this.startSessionSaver();
         } else if (connection === 'connecting') {
             logWithTimestamp('🔄 Connecting to WhatsApp...');
             this.dbManager.updateConnectionStatus('connecting');
@@ -279,7 +309,7 @@ class WhatsAppManager {
         
         logWithTimestamp('💓 Starting heartbeat mechanism...');
         
-        // Send heartbeat every 25 seconds (more frequent)
+        // OPTIMIZED: Send heartbeat every 60 seconds (was 25 seconds - reduced server load)
         this.heartbeatInterval = setInterval(() => {
             if (this.isConnected && this.sock) {
                 try {
@@ -294,7 +324,7 @@ class WhatsAppManager {
                     
                     // If heartbeat fails multiple times, try to reconnect
                     if (this.connectionStats.lastHeartbeat && 
-                        Date.now() - this.connectionStats.lastHeartbeat > 120000) { // 2 minutes
+                        Date.now() - this.connectionStats.lastHeartbeat > 300000) { // 5 minutes (was 2 minutes)
                         logWithTimestamp('⚠️ Heartbeat failed for too long, attempting reconnect...');
                         this.reconnect().catch(err => {
                             logWithTimestamp(`❌ Auto-reconnect failed: ${err.message}`, 'error');
@@ -302,7 +332,7 @@ class WhatsAppManager {
                     }
                 }
             }
-        }, 25000); // 25 seconds
+        }, 60000); // 60 seconds (was 25 seconds)
     }
 
     // Stop heartbeat
@@ -311,6 +341,42 @@ class WhatsAppManager {
             clearInterval(this.heartbeatInterval);
             this.heartbeatInterval = null;
             logWithTimestamp('💔 Heartbeat stopped');
+        }
+    }
+
+    // ADDED: Start aggressive session saver
+    startSessionSaver() {
+        // Clear existing session saver if any
+        if (this.sessionSaveInterval) {
+            clearInterval(this.sessionSaveInterval);
+        }
+        
+        logWithTimestamp('💾 Starting aggressive session saver...');
+        
+        // Force save session every 2 minutes when connected
+        this.sessionSaveInterval = setInterval(() => {
+            if (this.isConnected && this.sock) {
+                try {
+                    this.forceSaveSession().then(saved => {
+                        if (saved) {
+                            logWithTimestamp('💾 Session auto-saved successfully', 'debug');
+                        }
+                    }).catch(error => {
+                        logWithTimestamp(`⚠️ Session auto-save failed: ${error.message}`, 'warn');
+                    });
+                } catch (error) {
+                    logWithTimestamp(`❌ Session saver error: ${error.message}`, 'warn');
+                }
+            }
+        }, 120000); // 2 minutes
+    }
+
+    // Stop session saver
+    stopSessionSaver() {
+        if (this.sessionSaveInterval) {
+            clearInterval(this.sessionSaveInterval);
+            this.sessionSaveInterval = null;
+            logWithTimestamp('💾 Session saver stopped');
         }
     }
 
@@ -501,6 +567,7 @@ class WhatsAppManager {
             logWithTimestamp('🚪 Logging out from WhatsApp...');
             
             this.stopHeartbeat();
+            this.stopSessionSaver();
             
             if (this.sock) {
                 await this.sock.logout();
@@ -536,6 +603,7 @@ class WhatsAppManager {
             logWithTimestamp('🔄 Initiating reconnection...');
             
             this.stopHeartbeat();
+            this.stopSessionSaver();
             
             // End current connection if exists
             if (this.sock) {
@@ -568,6 +636,7 @@ class WhatsAppManager {
             // Set flag untuk manual disconnect
             this.isManualDisconnect = true;
             this.stopHeartbeat();
+            this.stopSessionSaver();
             
             if (this.sock) {
                 await this.sock.end();
@@ -598,6 +667,7 @@ class WhatsAppManager {
             this.isManualDisconnect = false;
             this.shouldReconnect = true;
             this.stopHeartbeat();
+            this.stopSessionSaver();
             
             // Jika sudah ada koneksi, disconnect dulu
             if (this.sock) {

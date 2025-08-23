@@ -183,11 +183,12 @@ class DatabaseManager {
     }
 
     // Cleanup old sessions (Heroku optimization)
-    cleanupOldSessions(hoursOld = 24) {
+    // FIXED: Increased cleanup interval to prevent premature session deletion
+    cleanupOldSessions(hoursOld = 168) { // 168 hours = 7 days (was 24 hours)
         const stmt = this.db.prepare(`
             DELETE FROM auth_session 
             WHERE datetime(last_updated) < datetime('now', '-${hoursOld} hours')
-            AND filename NOT IN ('creds.json')
+            AND filename NOT IN ('creds.json', 'app-state-sync-version.json', 'session-1.json')
         `);
         const result = stmt.run();
         return result.changes;
@@ -208,8 +209,8 @@ class DatabaseManager {
             // WAL checkpoint
             this.db.pragma('wal_checkpoint(PASSIVE)');
             
-            // Cleanup old sessions
-            const cleaned = this.cleanupOldSessions(6); // 6 hours
+            // Cleanup old sessions - more conservative approach
+            const cleaned = this.cleanupOldSessions(168); // 7 days instead of 6 hours
             if (cleaned > 0) {
                 console.log(`🧹 Database maintenance: cleaned ${cleaned} old sessions`);
             }

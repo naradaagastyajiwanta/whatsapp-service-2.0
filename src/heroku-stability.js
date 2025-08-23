@@ -92,8 +92,8 @@ class HerokuStabilityManager {
         try {
             logWithTimestamp('🧹 Performing session cleanup...');
             
-            // Clean old auth sessions
-            const cleanedSessions = this.dbManager.cleanupOldSessions(24); // 24 hours
+            // Clean old auth sessions - more conservative approach
+            const cleanedSessions = this.dbManager.cleanupOldSessions(168); // 7 days (was 24 hours)
             if (cleanedSessions > 0) {
                 logWithTimestamp(`🗑️ Cleaned ${cleanedSessions} old auth sessions`);
             }
